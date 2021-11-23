@@ -37,7 +37,11 @@ def detect_fn(image):
 ##### DETECT FROM AN IMAGE #####
 def generate_detections(img_path):
     """generate detections for test image:
-    contains i.a. bounding boxes with [ymin, xmin, ymax, xmax]"""
+    contains i.a. bounding boxes with [ymin, xmin, ymax, xmax]
+    output: dict containing i.a.
+            - detection_boxes
+            - detection_scores
+            - detection_classes ..."""
     img = cv2.imread(img_path)
     image_np = np.array(img)
     # converting img to tensor
@@ -51,11 +55,25 @@ def generate_detections(img_path):
     detect_dict['detection_classes'] = detect_dict['detection_classes'].astype(np.int64)
     return detect_dict
 
-def get_pred_bubble_diameter(img_path, detect_dict):
-    """Get diameter of detected bubble (averaged bounding box width)
+def get_bubble_pred_thresh(detect_dict,score_thresh):
+    """Get bounding boxes with score over threshold score_thresh
+    output: numpy array with locations of bounding boxes"""
+    scores = detect_dict['detection_scores']
+    boxes = detect_dict['detection_boxes']
+    #print((i,scores[i]) for i in boxes if scores[i] > score_thresh)
+    #print((i,scores[i]) for i,v in enumerate(boxes) if scores[i] > score_thresh)
+    pred_thresh = []
+    for i, v in enumerate(boxes):
+        if scores[i] >= score_thresh:
+            pred_thresh.append(v)
+    pred_thresh = np.array(pred_thresh)
+    return pred_thresh
+
+def get_pred_bubble_diameter(img_path, bounding_boxes):
+    """Get diameter of detected bubbles (averaged bounding box width)
+    output: list of bubble diameters in pixels
     USE ONLY IF NORMALIZED COORDINATES WERE GENERATED"""
     img = cv2.imread(img_path)
-    bounding_boxes = detect_dict['detection_boxes']
     im_height, im_width, channels = img.shape
     diameter_list = []
     for box in bounding_boxes:
@@ -64,24 +82,10 @@ def get_pred_bubble_diameter(img_path, detect_dict):
         (left, right, top, bottom) = (xmin * im_width, xmax * im_width,
                                     ymin * im_height, ymax * im_height)
         b_width = right - left
-        b_height = top - bottom
+        b_height = bottom - top
         avg_diameter = (b_width+b_height)/2
         diameter_list.append(avg_diameter)
     return diameter_list
-
-def get_bubble_pred_thresh(detect_dict,score_thresh):
-    """Get all detections with score over threshold score_thresh"""
-    scores = detect_dict['detection_scores']
-    classes = detect_dict['detection_classes']
-    boxes = detect_dict['detection_boxes']
-    #print((i,scores[i]) for i in boxes if scores[i] > score_thresh)
-    #print((i,scores[i]) for i,v in enumerate(boxes) if scores[i] > score_thresh)
-    pred_thresh = []
-    for i, v in enumerate(boxes):
-        if scores[i] >= score_thresh:
-            print(v)
-            pred_thresh.append(v)
-    return pred_thresh
 
 def visualize_detections(img_path, detect_dict, score_thresh):
     """Visualize generated detections in test image"""
@@ -109,6 +113,7 @@ def visualize_detections(img_path, detect_dict, score_thresh):
     # save visualization in "tested" directory
     save_path = os.path.join(model_tested_path,img_name)
     plt.savefig(save_path)
+    print("Visualized Detections saved in: ", str(save_path))
 
 
 #################################
@@ -117,7 +122,9 @@ def visualize_detections(img_path, detect_dict, score_thresh):
 TESTIMGS_PATHS = []
 bubble_diameters = {}
 bubble_detections = {}
-bubble_detections_thresh = {}
+bubble_boxes_thresh = {}
+bubble_number = {}
+
 MIN_SCORE_THRESH = 0.5
 
 category_index = label_map_util.create_category_index_from_labelmap(files['LABELMAP'])
@@ -138,18 +145,20 @@ for file in os.listdir(os.path.join(paths['IMAGE_PATH'], 'test')):
         TESTIMGS_PATHS.append(img_path)
 print(TESTIMGS_PATHS)
 
-
 for ipath in TESTIMGS_PATHS:
     # get img name (last part of img_path)
     img_name = os.path.basename(os.path.normpath(ipath))
     # save detection to dict
-    bubble_detections[img_name] = generate_detections(ipath)
-    ipred = bubble_detections[img_name]
-    # save bubble diameters to dict
-    bubble_diameters[img_name] = get_pred_bubble_diameter(ipath, ipred)
-    # save detections with min threshold to dict
-    bubble_detections_thresh[img_name] = get_bubble_pred_thresh(ipred,MIN_SCORE_THRESH)
-    # visualize detections
+    ipred = generate_detections(ipath)
+    bubble_detections[img_name] = ipred
+    # visualize detections (saved in tested directory)
     visualize_detections(ipath,ipred,MIN_SCORE_THRESH)
+    # save bounding boxes with min threshold to dict
+    ipred_thresh_box = get_bubble_pred_thresh(ipred,MIN_SCORE_THRESH)
+    bubble_boxes_thresh[img_name] = ipred_thresh_box
+    # save bubble diameters to dict
+    bubble_diameters[img_name] = get_pred_bubble_diameter(ipath, ipred_thresh_box)
+    # get number of detected objects (threshold detection)
+    bubble_number[img_name] = len(ipred_thresh_box)
 
 x = 1
