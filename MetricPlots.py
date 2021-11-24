@@ -8,11 +8,6 @@ def metric_split(dict):
         df_prec = df[df['Value'].str.contains("Precision")]
         df_recall = df[df['Value'].str.contains("Precision")]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    fig.suptitle('Horizontally stacked subplots')
-    ax1.plot(x, y)
-    ax2.plot(x, -y)
-
 def precision_plot(dict):
     """CREATE PLOT SHOWING DIFFERENT PRECISION TYPES
     one subaxis per precision type, grouped by unique custom models"""

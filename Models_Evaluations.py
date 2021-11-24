@@ -12,8 +12,11 @@ from IPython.display import display
 from MetricPlots import precision_plot, recall_plot
 from tidecv import TIDE, datasets
 
+"""Get properties that are available in Tensorboard for custom Object Detection models"""
+
 # set model name
-custom_models = ['my_ssd_mobnet']#,
+custom_models = ['my_faster_rcnn_resnet101_v1_1024']
+                #'my_ssd_mobnet',
                 #'my_faster_rcnn_resnet50',
                 #'my_faster_rcnn_resnet50_2',
                 #'my_faster_rcnn_resnet50_3',
@@ -33,6 +36,7 @@ def set_paths(model_name):
 
 def get_event_file(epath):
     """Get path to event file (train or eval)"""
+    # Make sure that only one file exists in path
     event_file = os.listdir(epath)
     event_path = os.path.join(epath,event_file[0])
     return event_path
@@ -52,7 +56,7 @@ def get_evaluation_metrics(model_name, efile_path, event_dict):
             df = pd.DataFrame([[value.tag, event.step, t, type(t)]], columns=['Value', 'Step', 't', 't_type'])
             #print(value.tag, event.step, t, type(t))
             event_df = event_df.append(df, ignore_index=True)
-    #print(event_df)
+    print(event_df)
     event_dict[model_name] = event_df
     return event_dict
 
@@ -61,7 +65,6 @@ def get_evaluation_metrics(model_name, efile_path, event_dict):
 
 train_dict = {}
 eval_dict = {}
-
 
 for model in custom_models:
     train_path, eval_path = set_paths(model)
@@ -72,27 +75,26 @@ for model in custom_models:
     eval_efile_path = get_event_file(eval_path)
     eval_metrics_dict = get_evaluation_metrics(model,eval_efile_path,eval_dict)
 
-tide = TIDE()
-tide.evaluate(datasets.COCO(), datasets.COCOResult(eval_efile_path), mode=TIDE.BOX)
-tide.summarize()  # Summarize the results as tables in the console
-tide.plot()       # Show a summary figure
+# TODO how to implement TIDE
+if 0:
+    tide = TIDE()
+    tide.evaluate(datasets.COCO(), datasets.COCOResult(eval_efile_path), mode=TIDE.BOX)
+    tide.summarize()  # Summarize the results as tables in the console
+    tide.plot()       # Show a summary figure
 
-#edict_keys = list(train_metrics_dict.keys())
-
-#for model in edict_keys:
-#    metrics = eval_metrics_dict[model].iloc[10:21]
+edict_keys = list(eval_metrics_dict.keys())
 
 precision_fig = precision_plot(eval_metrics_dict)
+plt.savefig(os.path.join(models_path,"Precisions_Compare.png"))
 recall_ig = recall_plot(eval_metrics_dict)
-plt.show()
+plt.savefig(os.path.join(models_path,"Recalls_Compare.png"))
 
 #launch_tensorboard(train_path)
-launch_tensorboard(eval_path)
+#launch_tensorboard(eval_path)
+# for view in debug console:
+#display(event_df)
 
 # TODO for train_metrics:
 # separate df into Value.unique() to separate losses from each other
-
-# for view in debug console:
-#display(event_df)
 
 x=1

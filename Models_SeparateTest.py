@@ -11,8 +11,9 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-CUSTOM_MODEL = 'my_faster_rcnn_resnet50_4'
-CUSTOM_CHECKPOINT = 'ckpt-21'
+# indicate custom model & desired checkpoint from training
+CUSTOM_MODEL = 'my_faster_rcnn_resnet101_v1_1024'
+CUSTOM_CHECKPOINT = 'ckpt-6'
 
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
