@@ -1,3 +1,4 @@
+from numpy.lib.function_base import append
 from TFODPaths import get_paths_and_files
 
 import os
@@ -9,11 +10,14 @@ from object_detection.utils import config_util
 
 import cv2 
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 
+"""Annotations and Checkpoints of Model required as input"""
+
 # indicate custom model & desired checkpoint from training
-CUSTOM_MODEL = 'my_faster_rcnn_resnet101_v1_1024'
-CUSTOM_CHECKPOINT = 'ckpt-6'
+CUSTOM_MODEL = 'my_faster_rcnn_resnet101_v1_1024_2'
+CUSTOM_CHECKPOINT = 'ckpt-11'
 
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
@@ -35,7 +39,9 @@ def detect_fn(image):
     detections = detection_model.postprocess(prediction_dict, shapes)
     return detections
 
-##### DETECT FROM AN IMAGE #####
+# classes from custom model (eg {"id": 0, "name": "Bubble"})
+category_index = label_map_util.create_category_index_from_labelmap(files['LABELMAP'])
+
 def generate_detections(img_path):
     """generate detections for test image:
     contains i.a. bounding boxes with [ymin, xmin, ymax, xmax]
@@ -72,7 +78,7 @@ def get_bubble_pred_thresh(detect_dict,score_thresh):
 
 def get_pred_bubble_diameter(img_path, bounding_boxes):
     """Get diameter of detected bubbles (averaged bounding box width)
-    output: list of bubble diameters in pixels
+    output: list of bubble diameters in mm
     USE ONLY IF NORMALIZED COORDINATES WERE GENERATED"""
     img = cv2.imread(img_path)
     im_height, im_width, channels = img.shape
@@ -84,7 +90,13 @@ def get_pred_bubble_diameter(img_path, bounding_boxes):
                                     ymin * im_height, ymax * im_height)
         b_width = right - left
         b_height = bottom - top
-        avg_diameter = (b_width+b_height)/2
+        # convert from pixel to mm
+        factor_width = img_width_mm / im_width
+        factor_height = img_width_mm / im_width
+        b_width_mm = factor_width * b_width
+        b_height_mm = factor_height * b_height
+        # average width and height
+        avg_diameter = (b_width_mm+b_height_mm)/2
         diameter_list.append(avg_diameter)
     return diameter_list
 
@@ -114,21 +126,53 @@ def visualize_detections(img_path, detect_dict, score_thresh):
     # save visualization in "tested" directory
     save_path = os.path.join(model_tested_path,img_name)
     plt.savefig(save_path)
+    plt.close()
     print("Visualized Detections saved in: ", str(save_path))
 
+def plot_hist_Bdiameter(df,n_bins,img_name):
+    """Plot histogram of the number of detected bubbles, grouped by bubble diameter
+    input: df containing diameters of all bubbles in one image
+           number of bins in histogram; name of img"""
+    plt.hist(df, bins=n_bins)
+    plt.xlabel('Bubble diameter [mm]')
+    plt.ylabel('Count [-]')
+    plt.title(img_name)
+    plt.savefig(os.path.join(model_tested_path,f'Hist_Diam_{img_name}.png'))
+    plt.close()
+    print(f'Diameter Hist saved under {model_tested_path} for {img_name}')
+
+# TODO total number of bubbles detected (over time - later when time series are available)
+# df as time series?
+def plot_Bcount(df,img_name):
+    # TODO concatenate bubble_number and time
+    plt.plot(df)
+    plt.xlabel('Time')
+    plt.ylabel('Bubble count [-]')
+    plt.title(img_name)
+    plt.savefig(os.path.join(model_tested_path,f'BCount_{img_name}.png'))
+    plt.close()
+    print(f'Bubble count plot saved under {model_tested_path} for {img_name}')
 
 #################################
 # START PREDICTION ON TEST IMAGES
+#################################
+
+# set path of test images
+test_path=os.path.join(paths['IMAGE_PATH'], 'test')
+#test_path=os.path.join(paths['IMAGE_PATH'], 'actual_bubbles')
+
+MIN_SCORE_THRESH = 0.5
+
+# indicate width and height of imgs [mm]
+img_width_mm = 20
+img_height_mm = 20
+##########################
 
 TESTIMGS_PATHS = []
 bubble_diameters = {}
 bubble_detections = {}
 bubble_boxes_thresh = {}
 bubble_number = {}
-
-MIN_SCORE_THRESH = 0.5
-
-category_index = label_map_util.create_category_index_from_labelmap(files['LABELMAP'])
 
 # path to store tested images to (imgs with bounding boxes)
 model_tested_path = os.path.join(paths['IMAGE_PATH'],'tested',CUSTOM_MODEL)
@@ -138,12 +182,16 @@ if not os.path.exists(model_tested_path):
     if os.name == 'nt':
         os.mkdir(model_tested_path)
 
+
+
 # get paths of all images that should get tested
-# (list all entries of test img directory)
-for file in os.listdir(os.path.join(paths['IMAGE_PATH'], 'test')):
-    if file.endswith(".png"):
-        img_path = os.path.join(paths['IMAGE_PATH'], 'test', file)
+for file in os.listdir(test_path): # (list all entries of test img directory)
+    # png format from artificial; tif from actual bubbe imgs
+    if file.endswith(".png") or file.endswith(".tif"):
+        img_path = os.path.join(test_path, file)
         TESTIMGS_PATHS.append(img_path)
+    else:
+        print('No test images found!')
 print(TESTIMGS_PATHS)
 
 for ipath in TESTIMGS_PATHS:
@@ -161,5 +209,15 @@ for ipath in TESTIMGS_PATHS:
     bubble_diameters[img_name] = get_pred_bubble_diameter(ipath, ipred_thresh_box)
     # get number of detected objects (threshold detection)
     bubble_number[img_name] = len(ipred_thresh_box)
+
+
+# Diameter Histogram
+for i in bubble_diameters.keys():
+    diameter_hist = plot_hist_Bdiameter(bubble_diameters[i],25,i)
+
+# TODO Total bubble count
+# wrap dictionary into list
+bubble_numbers_df = pd.DataFrame([bubble_number])
+#Bcount_fig = plot_Bcount(bubble_number[i],i)
 
 x = 1
