@@ -12,12 +12,16 @@ import cv2
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+import seaborn as sns
+
+import xmltodict
+import pprint
 
 """Annotations and Checkpoints of Model required as input"""
 
 # indicate custom model & desired checkpoint from training
-CUSTOM_MODEL = 'my_faster_rcnn_resnet101_v1_1024_2'
-CUSTOM_CHECKPOINT = 'ckpt-11'
+CUSTOM_MODEL = 'my_centernet_hg104_1024_2'
+CUSTOM_CHECKPOINT = 'ckpt-21'
 
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
@@ -100,6 +104,35 @@ def get_pred_bubble_diameter(img_path, bounding_boxes):
         diameter_list.append(avg_diameter)
     return diameter_list
 
+def get_annotated_Diameters(dict):
+    # input: annot dict of one img
+    im_width = int(dict["annotation"]["size"]["width"])
+    im_height = int(dict["annotation"]["size"]["height"])
+    diameter_list = []
+    # list of object annotations (bubbles)
+    dict_list = dict["annotation"]["object"]
+    # iterate through all bubble objects
+    for obj in dict_list:
+        box = obj["bndbox"]
+        ymin, xmin, ymax, xmax = int(box['ymin']), int(box['xmin']), int(box['ymax']), int(box['xmax'])
+         # absolute coordinates of box
+        (left, right, top, bottom) = (xmin * im_width, xmax * im_width,
+                                    ymin * im_height, ymax * im_height)
+        #b_width = right - left
+        #b_height = bottom - top
+        b_width = xmax - xmin
+        b_height = ymax - ymin
+        # convert from pixel to mm
+        factor_width = img_width_mm / im_width
+        factor_height = img_width_mm / im_width
+        b_width_mm = factor_width * b_width
+        b_height_mm = factor_height * b_height
+        # average width and height
+        avg_diameter = (b_width_mm+b_height_mm)/2
+        # save all bubble diameters of img in list
+        diameter_list.append(avg_diameter)
+    return diameter_list
+
 def visualize_detections(img_path, detect_dict, score_thresh):
     """Visualize generated detections in test image"""
     img = cv2.imread(img_path)
@@ -141,6 +174,21 @@ def plot_hist_Bdiameter(df,n_bins,img_name):
     plt.close()
     print(f'Diameter Hist saved under {model_tested_path} for {img_name}')
 
+def plot_hist_dens_Bdiameter(df,n_bins,img_name):
+    """Plot histogram and probability density of the number of detected bubbles
+    input: df containing diameters of all bubbles in one image
+           number of bins in histogram; name of img"""
+    sns.distplot(df, hist=True, kde=True, 
+                bins=n_bins, color = 'darkblue', 
+                hist_kws={'edgecolor':'black'},
+                kde_kws={'linewidth': 2})
+    plt.xlabel('Bubble diameter [mm]')
+    plt.ylabel('Density')
+    plt.title(img_name)
+    plt.savefig(os.path.join(model_tested_path,f'Hist_Dens_Diam_{img_name}.png'))
+    plt.close()
+    print(f'Diameter Hist+Dens saved under {model_tested_path} for {img_name}')
+
 # TODO total number of bubbles detected (over time - later when time series are available)
 # df as time series?
 def plot_Bcount(df,img_name):
@@ -169,7 +217,9 @@ img_height_mm = 20
 ##########################
 
 TESTIMGS_PATHS = []
+TESTANNOT_PATHS = []
 bubble_diameters = {}
+annot_diameters = {}
 bubble_detections = {}
 bubble_boxes_thresh = {}
 bubble_number = {}
@@ -182,17 +232,32 @@ if not os.path.exists(model_tested_path):
     if os.name == 'nt':
         os.mkdir(model_tested_path)
 
-
-
 # get paths of all images that should get tested
 for file in os.listdir(test_path): # (list all entries of test img directory)
     # png format from artificial; tif from actual bubbe imgs
     if file.endswith(".png") or file.endswith(".tif"):
         img_path = os.path.join(test_path, file)
         TESTIMGS_PATHS.append(img_path)
-    else:
-        print('No test images found!')
-print(TESTIMGS_PATHS)
+    elif file.endswith(".xml"):
+        annot_path = os.path.join(test_path, file)
+        TESTANNOT_PATHS.append(annot_path)
+print("Test Images:\n","\n".join(TESTIMGS_PATHS))
+print("Annotations:\n","\n".join(TESTANNOT_PATHS))
+
+# Open xml files and save contents to dict
+annots_dict = {}
+for path in TESTANNOT_PATHS:
+    annot_name = os.path.basename(os.path.normpath(path))
+    with open(path, 'r', encoding='utf-8') as file:
+        my_xml = file.read()
+        # Parse and convert XML document
+        annots_dict[annot_name] = xmltodict.parse(my_xml)
+#pprint.pprint(annots_dict, indent=2)
+
+for apath in TESTANNOT_PATHS:
+    annot_name = os.path.basename(os.path.normpath(apath))
+    # save annotated bubble diameters to dict
+    annot_diameters[annot_name] = get_annotated_Diameters(annots_dict[annot_name])
 
 for ipath in TESTIMGS_PATHS:
     # get img name (last part of img_path)
@@ -201,7 +266,7 @@ for ipath in TESTIMGS_PATHS:
     ipred = generate_detections(ipath)
     bubble_detections[img_name] = ipred
     # visualize detections (saved in tested directory)
-    visualize_detections(ipath,ipred,MIN_SCORE_THRESH)
+    #visualize_detections(ipath,ipred,MIN_SCORE_THRESH)
     # save bounding boxes with min threshold to dict
     ipred_thresh_box = get_bubble_pred_thresh(ipred,MIN_SCORE_THRESH)
     bubble_boxes_thresh[img_name] = ipred_thresh_box
@@ -210,6 +275,11 @@ for ipath in TESTIMGS_PATHS:
     # get number of detected objects (threshold detection)
     bubble_number[img_name] = len(ipred_thresh_box)
 
+# Diameter Density plot Histogram
+for i in bubble_diameters.keys():
+    diameter_hist_pred = plot_hist_dens_Bdiameter(bubble_diameters[i],25,("Pred_"+str(i)))
+for i in annot_diameters.keys():
+    diameter_hist_annot = plot_hist_dens_Bdiameter(annot_diameters[i],25,("Annot_"+str(i)))
 
 # Diameter Histogram
 for i in bubble_diameters.keys():
