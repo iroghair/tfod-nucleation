@@ -22,6 +22,8 @@ import pprint
 # indicate custom model & desired checkpoint from training
 CUSTOM_MODEL = 'my_centernet_hg104_1024_2'
 CUSTOM_CHECKPOINT = 'ckpt-21'
+# max. allowed detections
+max_detect = 208
 
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
@@ -29,6 +31,9 @@ paths, files = get_paths_and_files(CUSTOM_MODEL)
 ##### LOAD TRAIN MODEL FROM CHECKPOINT #####
 # Load pipeline config and build a detection model
 configs = config_util.get_configs_from_pipeline_file(files['PIPELINE_CONFIG'])
+configs["model"].center_net.object_center_params.max_box_predictions = max_detect
+configs['train_config'].max_number_of_boxes = max_detect
+
 detection_model = model_builder.build(model_config=configs['model'], is_training=False)
 
 # Restore checkpoint
@@ -82,7 +87,7 @@ def get_bubble_pred_thresh(detect_dict,score_thresh):
 
 def get_pred_bubble_diameter(img_path, bounding_boxes):
     """Get diameter of detected bubbles (averaged bounding box width)
-    output: list of bubble diameters in mm
+    output: df of bubble diameters in mm
     USE ONLY IF NORMALIZED COORDINATES WERE GENERATED"""
     img = cv2.imread(img_path)
     im_height, im_width, channels = img.shape
@@ -102,6 +107,7 @@ def get_pred_bubble_diameter(img_path, bounding_boxes):
         # average width and height
         avg_diameter = (b_width_mm+b_height_mm)/2
         diameter_list.append(avg_diameter)
+        #diameter_df = pd.DataFrame(diameter_list)
     return diameter_list
 
 def get_annotated_Diameters(dict):
@@ -131,6 +137,7 @@ def get_annotated_Diameters(dict):
         avg_diameter = (b_width_mm+b_height_mm)/2
         # save all bubble diameters of img in list
         diameter_list.append(avg_diameter)
+        #diameter_df = pd.DataFrame(diameter_list)
     return diameter_list
 
 def visualize_detections(img_path, detect_dict, score_thresh):
@@ -151,8 +158,8 @@ def visualize_detections(img_path, detect_dict, score_thresh):
                 category_index,
                 # specify in absolute (pixel) or normalized coordinates
                 use_normalized_coordinates=True,
-                # TODO set max. count
-                max_boxes_to_draw=100,
+                # max. count
+                max_boxes_to_draw=max_detect,
                 min_score_thresh=score_thresh,
                 agnostic_mode=False)
     tested_fig = plt.imshow(cv2.cvtColor(image_np_with_detections, cv2.COLOR_BGR2RGB))
@@ -162,37 +169,55 @@ def visualize_detections(img_path, detect_dict, score_thresh):
     plt.close()
     print("Visualized Detections saved in: ", str(save_path))
 
-def plot_hist_Bdiameter(df,n_bins,img_name):
-    """Plot histogram of the number of detected bubbles, grouped by bubble diameter
-    input: df containing diameters of all bubbles in one image
-           number of bins in histogram; name of img"""
-    plt.hist(df, bins=n_bins)
-    plt.xlabel('Bubble diameter [mm]')
-    plt.ylabel('Count [-]')
-    plt.title(img_name)
-    plt.savefig(os.path.join(model_tested_path,f'Hist_Diam_{img_name}.png'))
-    plt.close()
-    print(f'Diameter Hist saved under {model_tested_path} for {img_name}')
-
-def plot_hist_dens_Bdiameter(df,n_bins,img_name):
+def hist_Bdiameter(diam,hbins,img_name):
     """Plot histogram and probability density of the number of detected bubbles
-    input: df containing diameters of all bubbles in one image
-           number of bins in histogram; name of img"""
-    sns.distplot(df, hist=True, kde=True, 
-                bins=n_bins, color = 'darkblue', 
-                hist_kws={'edgecolor':'black'},
-                kde_kws={'linewidth': 2})
+        (kernel density estimation - Gaussian)
+    input: list containing diameters of all bubbles in one image
+           bins in histogram; name of img"""
+    sns.histplot(diam,bins=hbins,kde=True,color='darkblue',stat='density')
     plt.xlabel('Bubble diameter [mm]')
     plt.ylabel('Density')
     plt.title(img_name)
-    plt.savefig(os.path.join(model_tested_path,f'Hist_Dens_Diam_{img_name}.png'))
+    plt.savefig(os.path.join(model_tested_path,f'Diam_HistDens_{img_name}.png'))
     plt.close()
     print(f'Diameter Hist+Dens saved under {model_tested_path} for {img_name}')
+
+def hist_compare_Bdiameter(diam_pred,diam_annot,my_bins,img_name):
+    """Plot histogram and probability density of the number of detected bubbles
+        (kernel density estimation - Gaussian)
+    input: lists containing diameters from prediction and annotation
+           bins in histogram; name of img"""
+    # plot two histograms in one figure
+    sns.histplot(diam_pred,bins=my_bins,kde=True,stat='density',color="green",label="Prediction")
+    sns.histplot(diam_annot,bins=my_bins,kde=True,stat='density',color="blue",label="Annotation")
+    plt.xlabel('Bubble diameter [mm]')
+    plt.ylabel('Density')
+    plt.title(img_name)
+    plt.legend()
+    plt.savefig(os.path.join(model_tested_path,f'Diam_HistComp_{img_name}.png'))
+    plt.close()
+    print(f'Diameter Compare Hist saved under {model_tested_path} for {img_name}')
+
+def boxplot_compare_Bdiameter(diam_pred,diam_annot,img_name):
+    """Boxplots containing statistical summary of diameter data
+    input: lists containing diameters from prediction and annotation
+           name of image"""
+    fig, ax = plt.subplots()
+    ax.boxplot([diam_pred,diam_annot])
+    ax.set_xticklabels(['Prediction','Annotation'])
+    # print number of observations into plot
+    n_pred, n_annot = len(diam_pred), len(diam_annot)
+    textstr = '\n'.join(["Observations","Predicition: "+str(n_pred),"Annotation: "+str(n_annot)])
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax.text(0.4, 0.95, textstr, transform=ax.transAxes, fontsize=10,verticalalignment='top', bbox=props)
+    plt.title('Statistical summary: '+img_name)
+    plt.savefig(os.path.join(model_tested_path,f'Diam_Boxplot_{img_name}.png'))
+    plt.close()
+    print(f'Boxplots saved under {model_tested_path} for {img_name}')
 
 # TODO total number of bubbles detected (over time - later when time series are available)
 # df as time series?
 def plot_Bcount(df,img_name):
-    # TODO concatenate bubble_number and time
     plt.plot(df)
     plt.xlabel('Time')
     plt.ylabel('Bubble count [-]')
@@ -206,20 +231,23 @@ def plot_Bcount(df,img_name):
 #################################
 
 # set path of test images
-test_path=os.path.join(paths['IMAGE_PATH'], 'test')
+#test_path=os.path.join(paths['IMAGE_PATH'], 'test')
 #test_path=os.path.join(paths['IMAGE_PATH'], 'actual_bubbles')
+test_path=os.path.join(paths['IMAGE_PATH'], 'supersaturation_0.16')
 
 MIN_SCORE_THRESH = 0.5
 
 # indicate width and height of imgs [mm]
-img_width_mm = 20
-img_height_mm = 20
+img_width_mm = 25
+img_height_mm = 25
 ##########################
 
 TESTIMGS_PATHS = []
 TESTANNOT_PATHS = []
 bubble_diameters = {}
+stat_BubbleDiam = {}
 annot_diameters = {}
+stat_annotDiam = {}
 bubble_detections = {}
 bubble_boxes_thresh = {}
 bubble_number = {}
@@ -232,12 +260,13 @@ if not os.path.exists(model_tested_path):
     if os.name == 'nt':
         os.mkdir(model_tested_path)
 
-# get paths of all images that should get tested
-for file in os.listdir(test_path): # (list all entries of test img directory)
+# get paths of images that should get tested + annotation paths
+for file in os.listdir(test_path):
     # png format from artificial; tif from actual bubbe imgs
     if file.endswith(".png") or file.endswith(".tif"):
         img_path = os.path.join(test_path, file)
         TESTIMGS_PATHS.append(img_path)
+    # xml format for annotation files
     elif file.endswith(".xml"):
         annot_path = os.path.join(test_path, file)
         TESTANNOT_PATHS.append(annot_path)
@@ -250,15 +279,17 @@ for path in TESTANNOT_PATHS:
     annot_name = os.path.basename(os.path.normpath(path))
     with open(path, 'r', encoding='utf-8') as file:
         my_xml = file.read()
-        # Parse and convert XML document
         annots_dict[annot_name] = xmltodict.parse(my_xml)
-#pprint.pprint(annots_dict, indent=2)
 
+# ANNOTATION
 for apath in TESTANNOT_PATHS:
     annot_name = os.path.basename(os.path.normpath(apath))
-    # save annotated bubble diameters to dict
+    # Save annotated bubble diameters to dict
     annot_diameters[annot_name] = get_annotated_Diameters(annots_dict[annot_name])
+    # Statistical summary of data
+    stat_annotDiam[annot_name] = pd.DataFrame(annot_diameters[annot_name]).describe()
 
+# PREDICTION
 for ipath in TESTIMGS_PATHS:
     # get img name (last part of img_path)
     img_name = os.path.basename(os.path.normpath(ipath))
@@ -266,28 +297,37 @@ for ipath in TESTIMGS_PATHS:
     ipred = generate_detections(ipath)
     bubble_detections[img_name] = ipred
     # visualize detections (saved in tested directory)
-    #visualize_detections(ipath,ipred,MIN_SCORE_THRESH)
+    visualize_detections(ipath,ipred,MIN_SCORE_THRESH)
     # save bounding boxes with min threshold to dict
     ipred_thresh_box = get_bubble_pred_thresh(ipred,MIN_SCORE_THRESH)
     bubble_boxes_thresh[img_name] = ipred_thresh_box
     # save bubble diameters to dict
     bubble_diameters[img_name] = get_pred_bubble_diameter(ipath, ipred_thresh_box)
+    # statistical summary of data
+    stat_BubbleDiam[img_name] = pd.DataFrame(bubble_diameters[img_name]).describe()
     # get number of detected objects (threshold detection)
     bubble_number[img_name] = len(ipred_thresh_box)
 
-# Diameter Density plot Histogram
-for i in bubble_diameters.keys():
-    diameter_hist_pred = plot_hist_dens_Bdiameter(bubble_diameters[i],25,("Pred_"+str(i)))
+# PLOTS
 for i in annot_diameters.keys():
-    diameter_hist_annot = plot_hist_dens_Bdiameter(annot_diameters[i],25,("Annot_"+str(i)))
-
-# Diameter Histogram
-for i in bubble_diameters.keys():
-    diameter_hist = plot_hist_Bdiameter(bubble_diameters[i],25,i)
+    # remove file extrension from image name
+    iname = os.path.splitext(i)[0]
+    d_annot=annot_diameters[i]
+    d_pred=bubble_diameters[(iname+".tif")]
+    # set histogram bins (same range for all hists)
+    bmin = min([min(d_pred),min(d_annot)])
+    bmax = max([max(d_pred),max(d_annot)])
+    d_bins = np.linspace(bmin,bmax,25)
+    # Bubble Diam from Prediction
+    diameter_hist_pred = hist_Bdiameter(d_pred,d_bins,("Pred_"+iname))
+    # Bubble Diam from Annotation
+    diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname))
+    # Comparison from Annotation and Prediction (Histogram)
+    diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,("Comp_"+iname))
+    # Comparison from Annotation and Prediction (Boxplot)
+    diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname)
 
 # TODO Total bubble count
 # wrap dictionary into list
 bubble_numbers_df = pd.DataFrame([bubble_number])
 #Bcount_fig = plot_Bcount(bubble_number[i],i)
-
-x = 1
