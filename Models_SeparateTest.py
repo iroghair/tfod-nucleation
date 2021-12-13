@@ -23,7 +23,7 @@ import pprint
 CUSTOM_MODEL = 'my_centernet_hg104_1024_2'
 CUSTOM_CHECKPOINT = 'ckpt-21'
 # max. allowed detections
-max_detect = 208
+max_detect = 300
 
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
@@ -215,16 +215,27 @@ def boxplot_compare_Bdiameter(diam_pred,diam_annot,img_name):
     plt.close()
     print(f'Boxplots saved under {model_tested_path} for {img_name}')
 
-# TODO total number of bubbles detected (over time - later when time series are available)
-# df as time series?
-def plot_Bcount(df,img_name):
-    plt.plot(df)
+def plot_Bcount(dict):
+    """Plot number of detected bubbles over time
+    (timestamps must be indicated in image name)
+    input: dictionary containing number of detected bubbles
+           image names as keys"""
+    Bcount = list(dict.values())
+    dk=dict.keys()
+    # remove tail of key string
+    splits = [key.split('_')[0] for key in dk]
+    # remove "t" in front of time indication
+    times_str = [s.split('t')[1] for s in splits]
+    # get timestamps as int
+    times = [int(t) for t in times_str]
+    plt.plot(times, Bcount, 'o')
     plt.xlabel('Time')
     plt.ylabel('Bubble count [-]')
-    plt.title(img_name)
-    plt.savefig(os.path.join(model_tested_path,f'BCount_{img_name}.png'))
+    name = os.path.basename(os.path.normpath(test_path))
+    plt.title("Number of bubbles: "+name)
+    plt.savefig(os.path.join(model_tested_path,f'BCount_{name}.png'))
     plt.close()
-    print(f'Bubble count plot saved under {model_tested_path} for {img_name}')
+    print(f'Bubble count plot saved under {model_tested_path}')
 
 #################################
 # START PREDICTION ON TEST IMAGES
@@ -238,8 +249,8 @@ test_path=os.path.join(paths['IMAGE_PATH'], 'supersaturation_0.16')
 MIN_SCORE_THRESH = 0.5
 
 # indicate width and height of imgs [mm]
-img_width_mm = 25
-img_height_mm = 25
+img_width_mm = 20
+img_height_mm = 20
 ##########################
 
 TESTIMGS_PATHS = []
@@ -309,10 +320,13 @@ for ipath in TESTIMGS_PATHS:
     bubble_number[img_name] = len(ipred_thresh_box)
 
 # PLOTS
+# str split needs to be adjusted before generating plot!
+plot_Bcount(bubble_number)
 for i in annot_diameters.keys():
     # remove file extrension from image name
     iname = os.path.splitext(i)[0]
     d_annot=annot_diameters[i]
+    #d_pred=bubble_diameters[(iname+".png")]
     d_pred=bubble_diameters[(iname+".tif")]
     # set histogram bins (same range for all hists)
     bmin = min([min(d_pred),min(d_annot)])
@@ -323,11 +337,6 @@ for i in annot_diameters.keys():
     # Bubble Diam from Annotation
     diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname))
     # Comparison from Annotation and Prediction (Histogram)
-    diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,("Comp_"+iname))
+    diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,iname)
     # Comparison from Annotation and Prediction (Boxplot)
     diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname)
-
-# TODO Total bubble count
-# wrap dictionary into list
-bubble_numbers_df = pd.DataFrame([bubble_number])
-#Bcount_fig = plot_Bcount(bubble_number[i],i)
