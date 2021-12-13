@@ -232,7 +232,7 @@ def plot_Bcount(dict):
     plt.xlabel('Time')
     plt.ylabel('Bubble count [-]')
     name = os.path.basename(os.path.normpath(test_path))
-    plt.title("Number of bubbles: "+name)
+    plt.title("Total number of bubbles: "+name)
     plt.savefig(os.path.join(model_tested_path,f'BCount_{name}.png'))
     plt.close()
     print(f'Bubble count plot saved under {model_tested_path}')
