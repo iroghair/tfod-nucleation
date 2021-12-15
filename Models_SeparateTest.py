@@ -20,10 +20,10 @@ import pprint
 """Annotations and Checkpoints of Model required as input"""
 
 # indicate custom model & desired checkpoint from training
-CUSTOM_MODEL = 'my_centernet_hg104_1024_2'
+CUSTOM_MODEL = 'my_centernet_hg104_1024_5'
 CUSTOM_CHECKPOINT = 'ckpt-21'
 # max. allowed detections
-max_detect = 300
+max_detect = 208
 
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
@@ -117,15 +117,12 @@ def get_annotated_Diameters(dict):
     diameter_list = []
     # list of object annotations (bubbles)
     dict_list = dict["annotation"]["object"]
+    boxes = []
     # iterate through all bubble objects
     for obj in dict_list:
         box = obj["bndbox"]
+        # [absolute values]
         ymin, xmin, ymax, xmax = int(box['ymin']), int(box['xmin']), int(box['ymax']), int(box['xmax'])
-         # absolute coordinates of box
-        (left, right, top, bottom) = (xmin * im_width, xmax * im_width,
-                                    ymin * im_height, ymax * im_height)
-        #b_width = right - left
-        #b_height = bottom - top
         b_width = xmax - xmin
         b_height = ymax - ymin
         # convert from pixel to mm
@@ -137,10 +134,16 @@ def get_annotated_Diameters(dict):
         avg_diameter = (b_width_mm+b_height_mm)/2
         # save all bubble diameters of img in list
         diameter_list.append(avg_diameter)
-        #diameter_df = pd.DataFrame(diameter_list)
-    return diameter_list
+        # save detection boxes [normalized values] (annot)
+        boxes.append([ymin/im_height,xmin/im_width,ymax/im_height,xmax/im_width])
+    # dict containing annotated boxes (class 0, score 1 for every box)
+    box_dict = {}
+    box_dict['detection_boxes'] = np.array(boxes)
+    box_dict['detection_classes'] = np.zeros(len(dict_list), dtype=int)
+    box_dict['detection_scores'] = np.ones(len(dict_list), dtype=int)
+    return diameter_list, box_dict
 
-def visualize_detections(img_path, detect_dict, score_thresh):
+def visualize_detections(img_path,detect_dict,score_thresh,img_name):
     """Visualize generated detections in test image"""
     img = cv2.imread(img_path)
     image_np = np.array(img)
@@ -158,7 +161,7 @@ def visualize_detections(img_path, detect_dict, score_thresh):
                 category_index,
                 # specify in absolute (pixel) or normalized coordinates
                 use_normalized_coordinates=True,
-                # max. count
+                # max. number of boxes to draw
                 max_boxes_to_draw=max_detect,
                 min_score_thresh=score_thresh,
                 agnostic_mode=False)
@@ -245,12 +248,14 @@ def plot_Bcount(dict):
 #test_path=os.path.join(paths['IMAGE_PATH'], 'test')
 #test_path=os.path.join(paths['IMAGE_PATH'], 'actual_bubbles')
 test_path=os.path.join(paths['IMAGE_PATH'], 'supersaturation_0.16')
+#test_path=os.path.join(paths['IMAGE_PATH'], 'H2_porousNickel')
+#test_path=os.path.join(paths['IMAGE_PATH'], 'output_10i_80b_test')
 
 MIN_SCORE_THRESH = 0.5
 
 # indicate width and height of imgs [mm]
-img_width_mm = 20
-img_height_mm = 20
+img_width_mm = 25
+img_height_mm = 25
 ##########################
 
 TESTIMGS_PATHS = []
@@ -260,16 +265,9 @@ stat_BubbleDiam = {}
 annot_diameters = {}
 stat_annotDiam = {}
 bubble_detections = {}
+annot_detections = {}
 bubble_boxes_thresh = {}
 bubble_number = {}
-
-# path to store tested images to (imgs with bounding boxes)
-model_tested_path = os.path.join(paths['IMAGE_PATH'],'tested',CUSTOM_MODEL)
-if not os.path.exists(model_tested_path):
-    if os.name == 'posix':
-        os.mkdir(model_tested_path)
-    if os.name == 'nt':
-        os.mkdir(model_tested_path)
 
 # get paths of images that should get tested + annotation paths
 for file in os.listdir(test_path):
@@ -283,6 +281,18 @@ for file in os.listdir(test_path):
         TESTANNOT_PATHS.append(annot_path)
 print("Test Images:\n","\n".join(TESTIMGS_PATHS))
 print("Annotations:\n","\n".join(TESTANNOT_PATHS))
+# get file extensions of images
+img_format = os.path.splitext(TESTIMGS_PATHS[0])[1]
+
+# get last part of test image path (folder name)
+folder_name = os.path.basename(os.path.normpath(test_path))
+# make path to store tested images to (imgs with bounding boxes)
+model_tested_path = os.path.join(paths['IMAGE_PATH'],'tested',CUSTOM_MODEL,folder_name)
+if not os.path.exists(model_tested_path):
+    if os.name == 'posix':
+        os.makedirs(model_tested_path)
+    if os.name == 'nt':
+        os.makedirs(model_tested_path)
 
 # Open xml files and save contents to dict
 annots_dict = {}
@@ -296,7 +306,12 @@ for path in TESTANNOT_PATHS:
 for apath in TESTANNOT_PATHS:
     annot_name = os.path.basename(os.path.normpath(apath))
     # Save annotated bubble diameters to dict
-    annot_diameters[annot_name] = get_annotated_Diameters(annots_dict[annot_name])
+    annot_diameters[annot_name], annot_detections[annot_name] = get_annotated_Diameters(annots_dict[annot_name])
+    # remove file extension
+    iname = annot_name.split('.xml')[0]
+    ipath = os.path.join(test_path,iname+img_format)
+    # visualize annotated bubbles
+    visualize_detections(ipath,annot_detections[annot_name],MIN_SCORE_THRESH,(iname+'_Annot'+img_format))
     # Statistical summary of data
     stat_annotDiam[annot_name] = pd.DataFrame(annot_diameters[annot_name]).describe()
 
@@ -308,7 +323,7 @@ for ipath in TESTIMGS_PATHS:
     ipred = generate_detections(ipath)
     bubble_detections[img_name] = ipred
     # visualize detections (saved in tested directory)
-    visualize_detections(ipath,ipred,MIN_SCORE_THRESH)
+    visualize_detections(ipath,ipred,MIN_SCORE_THRESH,img_name)
     # save bounding boxes with min threshold to dict
     ipred_thresh_box = get_bubble_pred_thresh(ipred,MIN_SCORE_THRESH)
     bubble_boxes_thresh[img_name] = ipred_thresh_box
@@ -320,23 +335,35 @@ for ipath in TESTIMGS_PATHS:
     bubble_number[img_name] = len(ipred_thresh_box)
 
 # PLOTS
+# test if annotations exist
+if TESTANNOT_PATHS:
+    for i in annot_diameters.keys():
+        # remove file extension from image name
+        iname = os.path.splitext(i)[0]
+        d_annot=annot_diameters[i]
+        d_pred=bubble_diameters[(iname+img_format)]
+        # set histogram bins (same range for all hists)
+        bmin = min([min(d_pred),min(d_annot)])
+        bmax = max([max(d_pred),max(d_annot)])
+        d_bins = np.linspace(bmin,bmax,25)
+        # Bubble Diam from Prediction
+        diameter_hist_pred = hist_Bdiameter(d_pred,d_bins,("Pred_"+iname))
+        # Bubble Diam from Annotation
+        diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname))
+        # Comparison from Annotation and Prediction (Histogram)
+        diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,iname)
+        # Comparison from Annotation and Prediction (Boxplot)
+        diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname)
+else:
+    # only plot prediction histogram (no comparative plots)
+    for j in bubble_diameters.keys():
+        # set histogram bins (same range for all hists)
+        bmin = min(bubble_diameters[j])
+        bmax = max(bubble_diameters[j])
+        d_bins = np.linspace(bmin,bmax,25)
+        # Bubble Diam from Prediction
+        diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j))
+        # Bubble Diam from Prediction
+        diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j))
 # str split needs to be adjusted before generating plot!
 plot_Bcount(bubble_number)
-for i in annot_diameters.keys():
-    # remove file extrension from image name
-    iname = os.path.splitext(i)[0]
-    d_annot=annot_diameters[i]
-    #d_pred=bubble_diameters[(iname+".png")]
-    d_pred=bubble_diameters[(iname+".tif")]
-    # set histogram bins (same range for all hists)
-    bmin = min([min(d_pred),min(d_annot)])
-    bmax = max([max(d_pred),max(d_annot)])
-    d_bins = np.linspace(bmin,bmax,25)
-    # Bubble Diam from Prediction
-    diameter_hist_pred = hist_Bdiameter(d_pred,d_bins,("Pred_"+iname))
-    # Bubble Diam from Annotation
-    diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname))
-    # Comparison from Annotation and Prediction (Histogram)
-    diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,iname)
-    # Comparison from Annotation and Prediction (Boxplot)
-    diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname)
