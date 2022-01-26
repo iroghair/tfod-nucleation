@@ -1,5 +1,8 @@
+from pickle import FALSE, TRUE
 from numpy.lib.function_base import append
 from TFODPaths import get_paths_and_files
+from Create_CocoJson import add_annot_to_dict, create_coco_annot, create_coco_results, save_json_file
+from SeparateTest_Functions import exclude_partial_pred, get_absolute_pixels, get_visualization_colors, get_bubble_pred_thresh
 
 import os
 import tensorflow as tf
@@ -70,20 +73,6 @@ def generate_detections(img_path):
     # detection_classes should be ints.
     detect_dict['detection_classes'] = detect_dict['detection_classes'].astype(np.int64)
     return detect_dict
-
-def get_bubble_pred_thresh(detect_dict,score_thresh):
-    """Get bounding boxes with score over threshold score_thresh
-    output: numpy array with locations of bounding boxes"""
-    scores = detect_dict['detection_scores']
-    boxes = detect_dict['detection_boxes']
-    #print((i,scores[i]) for i in boxes if scores[i] > score_thresh)
-    #print((i,scores[i]) for i,v in enumerate(boxes) if scores[i] > score_thresh)
-    pred_thresh = []
-    for i, v in enumerate(boxes):
-        if scores[i] >= score_thresh:
-            pred_thresh.append(v)
-    pred_thresh = np.array(pred_thresh)
-    return pred_thresh
 
 def get_pred_bubble_diameter(img_path, bounding_boxes):
     """Get diameter of detected bubbles (averaged bounding box width)
@@ -193,6 +182,7 @@ def visualize_detections(img_path,detect_dict,score_thresh,img_name,color_id,
     plt.close()
     print("Visualized Detections saved in: ", str(save_path))
 
+# TODO outsource plots
 def hist_Bdiameter(diam,hbins,img_name):
     """Plot histogram and probability density of the number of detected bubbles
         (kernel density estimation - Gaussian)
@@ -266,34 +256,25 @@ def plot_Bcount(dict):
 #################################
 
 # set path of test images
-#test_path=os.path.join(paths['IMAGE_PATH'], 'test')
+test_path=os.path.join(paths['IMAGE_PATH'], 'test')
 #test_path=os.path.join(paths['IMAGE_PATH'], 'actual_bubbles')
-test_path=os.path.join(paths['IMAGE_PATH'], 'supersaturation_0.16_cropIR')
+#test_path=os.path.join(paths['IMAGE_PATH'], 'supersaturation_0.16_cropIR')
 #test_path=os.path.join(paths['IMAGE_PATH'], 'H2_porousNickel')
-#test_path=os.path.join(paths['IMAGE_PATH'], 'output_10i_80b_test')
+#test_path=os.path.join(paths['IMAGE_PATH'], 'output_10_80_JGmask')
 
 MIN_SCORE_THRESH = 0.5
 
 # indicate width and height of imgs [mm]
 img_width_mm = 20
 img_height_mm = 20
-##########################
 
+##################################
 TESTIMGS_PATHS = []
 TESTANNOT_PATHS = []
-bubble_diameters = {}
-stat_BubbleDiam = {}
-annot_diameters = {}
-stat_annotDiam = {}
-bubble_detections = {}
-annot_detections = {}
-bubble_boxes_thresh = {}
-bubble_number = {}
-
 # get paths of images that should get tested + annotation paths
 for file in os.listdir(test_path):
     # png format from artificial; tif from actual bubbe imgs
-    if file.endswith(".png") or file.endswith(".tif"):
+    if file.endswith(".png") or file.endswith(".tif") or file.endswith(".jpg"):
         img_path = os.path.join(test_path, file)
         TESTIMGS_PATHS.append(img_path)
     # xml format for annotation files
@@ -308,7 +289,7 @@ img_format = os.path.splitext(TESTIMGS_PATHS[0])[1]
 # get last part of test image path (folder name)
 folder_name = os.path.basename(os.path.normpath(test_path))
 # make path to store tested images to (imgs with bounding boxes)
-model_tested_path = os.path.join(paths['IMAGE_PATH'],'tested',CUSTOM_MODEL,folder_name)
+model_tested_path = os.path.join(paths['IMAGE_PATH'],'tested',CUSTOM_MODEL,(folder_name+'_thresh'+str(MIN_SCORE_THRESH)))
 if not os.path.exists(model_tested_path):
     if os.name == 'posix':
         os.makedirs(model_tested_path)
@@ -323,7 +304,19 @@ for path in TESTANNOT_PATHS:
         my_xml = file.read()
         annots_dict[annot_name] = xmltodict.parse(my_xml)
 
-# ANNOTATION
+########### ANNOTATION ############
+annot_detections = {}
+annot_detections_abs = {}
+annot_diameters = {}
+stat_annotDiam = {}
+# initialize COCO json file
+if os.path.isfile(os.path.join(model_tested_path,"COCO_annot.json")):
+    CREATE_COCO_Annot = False
+    print("Coco Annotation file already existing")
+else:
+    annot_coco_dict = create_coco_annot()
+    CREATE_COCO_Annot = True
+color_id_a = {}
 for apath in TESTANNOT_PATHS:
     annot_name = os.path.basename(os.path.normpath(apath))
     # Save annotated bubble diameters to dict
@@ -331,60 +324,97 @@ for apath in TESTANNOT_PATHS:
     # remove file extension
     iname = annot_name.split('.xml')[0]
     ipath = os.path.join(test_path,iname+img_format)
-    # Set color for visualization of boxes (98=red, 1=blue)
-    color_id_a = np.full(len(annot_detections[annot_name]["detection_boxes"]), 98, dtype=int)
+    # Set color for visualization of boxes (98=red, 118=dark red)
+    color_id_a[iname] = np.full(len(annot_detections[annot_name]["detection_boxes"]), 115, dtype=int)
     # visualize annotated bubbles
-    visualize_detections(ipath,annot_detections[annot_name],MIN_SCORE_THRESH,(iname+'_Annot'+img_format),color_id_a)
+    #visualize_detections(ipath,annot_detections[annot_name],MIN_SCORE_THRESH,(iname+'_Annot'+img_format),color_id_a[iname])
     # Statistical summary of data
     stat_annotDiam[annot_name] = pd.DataFrame(annot_diameters[annot_name]).describe()
+    if CREATE_COCO_Annot:
+        # Add image info and current bounding boxes to COCO dict
+        im_height=int(annots_dict[annot_name]["annotation"]["size"]["height"])
+        im_width=int(annots_dict[annot_name]["annotation"]["size"]["width"])
+        # get absolute pixel values
+        annot_detections_abs[annot_name]=get_absolute_pixels(annot_detections[annot_name],ipath)
+        # only take the 80 annotated boxes into account (no boxes with score=0)
+        bboxes = get_bubble_pred_thresh(annot_detections_abs[annot_name],MIN_SCORE_THRESH)
+        annot_coco_dict = add_annot_to_dict(bboxes,annot_coco_dict, iname, im_height, im_width)
+if CREATE_COCO_Annot:
+    save_json_file(annot_coco_dict,model_tested_path,"COCO_annot")
 
-# PREDICTION
+############ PREDICTION #############
+color_id_p = {}
+stat_BubbleDiam = {}
+bubble_detections = {}
+ipred_wo_partials = {}
+ipred_wo_partials_abs = {}
+bubble_diameters = {}
+bboxes_thresh = {}
+bubble_number = {}
+# COCO results json file: test if exists
+if os.path.isfile(os.path.join(model_tested_path,"COCO_results.json")):
+    CREATE_COCO_result = False
+    print("Coco Results file already existing")
+else:
+    resultslist = []
+    CREATE_COCO_result = True
 for ipath in TESTIMGS_PATHS:
     # get img name (last part of img_path)
     img_name = os.path.basename(os.path.normpath(ipath))
+    iname = img_name.split(img_format)[0]
     # save detection to dict
     ipred = generate_detections(ipath)
     bubble_detections[img_name] = ipred
-    # Set color for visualization of boxes (102 = green)
-    color_id_p = np.full(len(ipred["detection_boxes"]), 102, dtype=int)
-    # visualize detections (saved in tested directory), show scores
-    visualize_detections(ipath,ipred,MIN_SCORE_THRESH,img_name,color_id_p,discard_scores=False)
+    # exclude detections that are cut off
+    ipred_wo_partials[img_name] = exclude_partial_pred(ipred,ipath,abs_dist=4)
     # save bounding boxes with min threshold to dict
-    ipred_thresh_box = get_bubble_pred_thresh(ipred,MIN_SCORE_THRESH)
-    bubble_boxes_thresh[img_name] = ipred_thresh_box
-    # save bubble diameters to dict
-    bubble_diameters[img_name] = get_pred_bubble_diameter(ipath, ipred_thresh_box)
-    # statistical summary of data
+    bboxes_thresh[img_name] = get_bubble_pred_thresh(ipred_wo_partials[img_name],MIN_SCORE_THRESH)
+    # Set color for visualization of boxes (102 = green)
+    color_id_p = get_visualization_colors(ipred_wo_partials[img_name],color_id_p,iname,0.0005)
+    # visualize thresholded detections (saved in tested directory), show scores
+    visualize_detections(ipath,ipred_wo_partials[img_name],MIN_SCORE_THRESH,img_name,color_id_p[iname],discard_scores=False)
+    # save thresholded bubble diameters to dict
+    bubble_diameters[img_name] = get_pred_bubble_diameter(ipath,bboxes_thresh[img_name])
+    # statistical summary of diameters
     stat_BubbleDiam[img_name] = pd.DataFrame(bubble_diameters[img_name]).describe()
-    # get number of detected objects (threshold detection)
-    bubble_number[img_name] = len(ipred_thresh_box)
+    # get number of detected bubbles (modified detection)
+    bubble_number[img_name] = len(bubble_diameters[img_name])
+    if CREATE_COCO_result:
+        # get absolute pixel values
+        ipred_wo_partials_abs[img_name]=get_absolute_pixels(ipred_wo_partials[img_name],ipath)
+        # add bboxes (all scores) to COCO results list
+        resultslist = create_coco_results(ipred_wo_partials_abs[img_name],iname,resultslist)
+# save COCO results to json file
+if CREATE_COCO_result:
+    save_json_file(resultslist,model_tested_path,"COCO_results")
 
-# PLOTS
-# test if annotations exist
+########### PLOTS ############
 ap_detections = {}
 if TESTANNOT_PATHS:
-    for i in annot_diameters.keys():
+    for ipath in TESTIMGS_PATHS:
+        img_name = os.path.basename(os.path.normpath(ipath))
         # remove file extension from image name
-        iname = os.path.splitext(i)[0]
+        iname = os.path.splitext(img_name)[0]
         # Diameters
-        d_annot=annot_diameters[i]
-        d_pred=bubble_diameters[(iname+img_format)]
+        d_annot=annot_diameters[(iname+'.xml')]
+        d_pred=bubble_diameters[img_name] # thresholded and wo partials
         # set histogram bins (same range for all hists)
         bmin = min([min(d_pred),min(d_annot)])
         bmax = max([max(d_pred),max(d_annot)])
         d_bins = np.linspace(bmin,bmax,25)
         # Bubble Diam Hist of Prediction
-        diameter_hist_pred = hist_Bdiameter(d_pred,d_bins,("Pred_"+iname))
+        #diameter_hist_pred = hist_Bdiameter(d_pred,d_bins,("Pred_"+iname))
         # Bubble Diam Hist of Annotation
-        diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname))
+        #diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname))
         # Comparison from Annotation and Prediction (Histogram)
         diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,iname)
         # Comparison from Annotation and Prediction (Boxplot)
         diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname)
         # visualize pred boxes in preexisting annot box visualization
-        color_id_ap = np.concatenate((color_id_p,color_id_a),axis=0)
-        ap_detections[iname] = unite_detection_dicts(ap_detections,iname,bubble_detections[iname+img_format],annot_detections[i])
-        visualize_detections(ipath,ap_detections[iname+img_format],MIN_SCORE_THRESH,
+        # TODO check what goes wrong with coloring the bounding boxes
+        color_id_ap = np.concatenate((color_id_p[iname],color_id_a[iname]),axis=0)
+        ap_detections[iname] = unite_detection_dicts(ap_detections,iname,ipred_wo_partials[img_name],annot_detections[(iname+'.xml')])
+        visualize_detections(ipath,ap_detections[img_name],MIN_SCORE_THRESH,
                             (iname+'_CompViz'+img_format),color_id_ap)
 else:
     # only plot prediction histogram (no comparative plots)
