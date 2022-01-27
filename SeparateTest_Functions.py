@@ -49,7 +49,7 @@ def get_absolute_pixels(detect_dict,img_path):
     detect_dict['detection_boxes'] = np.array(abs_boxes)
     return detect_dict
 
-def get_bubble_pred_thresh(detect_dict,score_thresh):
+def get_pred_thresh_orig(detect_dict,score_thresh):
     """Get bounding boxes with score over threshold score_thresh
     output: numpy array with locations of bounding boxes"""
     scores = detect_dict['detection_scores']
@@ -62,6 +62,36 @@ def get_bubble_pred_thresh(detect_dict,score_thresh):
             pred_thresh.append(v)
     pred_thresh = np.array(pred_thresh)
     return pred_thresh
+
+def get_pred_thresh(detect_dict,score_thresh,pred=True):
+    """Removes entries from detection dict of one image
+    that belong to detection score < score_thresh
+    pred=True for prediction dicts, since it contains other keys than annotation dict"""
+    boxes = detect_dict['detection_boxes']
+    scores = detect_dict['detection_scores']
+    classes = detect_dict['detection_classes']
+    if pred:
+        multscores = detect_dict['detection_multiclass_scores']
+        strided = detect_dict['detection_boxes_strided']
+    rows = [] # rows that will be deleted
+    for i, v in enumerate(boxes):
+        if scores[i] < score_thresh:
+            rows.append(i)
+            if pred:
+                detect_dict['num_detections'] -= 1
+            else:
+                pass
+        else:
+            pass
+    detect_dict['detection_boxes'] = np.delete(boxes, rows, 0)
+    detect_dict['detection_scores'] = np.delete(scores, rows, 0)
+    detect_dict['detection_classes'] = np.delete(classes, rows, 0)
+    if pred:
+        detect_dict['detection_multiclass_scores'] = np.delete(multscores, rows, 0)
+        detect_dict['detection_boxes_strided'] = np.delete(strided, rows, 0)
+    else:
+        pass
+    return detect_dict
 
 def get_visualization_colors(detect_dict,color_dict,img_name,score_thresh,area_thresh):
     """Sets colors for bounding boxes with min. score of score_thresh

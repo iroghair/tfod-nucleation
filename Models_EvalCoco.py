@@ -37,19 +37,39 @@ cocoGt = COCO(path_to_annotation)
 cocoDt = cocoGt.loadRes(path_to_results)
 
 cocoEval = COCOeval(cocoGt, cocoDt, annType)
+
+# set parameters as desired
+# TODO understand metrics and set possible Detections to more than 100
+#cocoEval.params.maxDets = [1,10,200]
+    #  imgIds     - [all] N img ids to use for evaluation
+    #  catIds     - [all] K cat ids to use for evaluation
+    #  iouThrs    - [.5:.05:.95] T=10 IoU thresholds for evaluation
+    #  recThrs    - [0:.01:1] R=101 recall thresholds for evaluation
+    #  areaRng    - [...] A=4 object area ranges for evaluation
+    #  maxDets    - [1 10 100] M=3 thresholds on max detections per image
+    #  iouType    - ['segm'] set iouType to 'segm', 'bbox' or 'keypoints'
+    #  iouType replaced the now DEPRECATED useSegm parameter.
+    #  useCats    - [1] if true use category labels for evaluation
+
+# evaluates detections on every image and every category
+# concats results into evalImgs
 cocoEval.evaluate()
+
+# accumulate per-image, per-category evaluation
+# --> evalImgs - "eval"
 cocoEval.accumulate()
 
-original_stdout = sys.stdout
-string_stdout = StringIO()
-sys.stdout = string_stdout
+#original_stdout = sys.stdout
+#string_stdout = StringIO()
+#sys.stdout = string_stdout
+# display summary metrics of results
 cocoEval.summarize()
-sys.stdout = original_stdout
+#sys.stdout = original_stdout
 
-mean_ap = cocoEval.stats[0].item()  # stats[0] records AP@[0.5:0.95]
-detail = string_stdout.getvalue()
+#mean_ap = cocoEval.stats[0].item()  # stats[0] records AP@[0.5:0.95]
+#detail = string_stdout.getvalue()
 # NOTE: precision and recall==-1 for settings with no gt objects
-print(detail)
+#print(detail)
 
 all_precision=cocoEval.eval['precision']
 # COCO: IoU threshold range AP@[0.5:0.05:0.95]
@@ -79,5 +99,5 @@ plt.ylabel("Precision")
 plt.xlabel("Recall")
 plt.legend()
 plt.title((CUSTOM_MODEL+", img: 20 artificial, mask JGIR"))
-plt.savefig(os.path.join(model_tested_path,"TestPRC_allimgs_absPixel.png"))
+plt.savefig(os.path.join(model_tested_path,"TestPRC_allimgs_maxDets80.png"))
 x=1

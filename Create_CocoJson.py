@@ -41,7 +41,7 @@ def create_coco_annot():
     jsondict = {"info":inf,"licenses":lic,"images":imgs,"categories":cat,"annotations":annots}
     return jsondict
 
-def add_annot_to_dict(bbox_list,jsondict,img_id,img_height,img_width):
+def add_annot_to_dict(bbox_list,jsondict,img_id,img_height,img_width,annotation_id):
     """Adds info of current image and all respective annotated bounding boxes
     to COCO annotation dictionary"""
     # append image info to dict["images"]
@@ -54,12 +54,13 @@ def add_annot_to_dict(bbox_list,jsondict,img_id,img_height,img_width):
     }
     jsondict["images"].append(im_info)
     # append all bbox annotations to dict["annotations"]
-    annotation_id = 1
+    #annotation_id = 1
     for box in bbox_list:
         annotation = create_bubble_annotation(box, img_id, annotation_id)
         jsondict["annotations"].append(annotation)
         annotation_id += 1
-    return jsondict
+    # return annot_id and take as input to function
+    return jsondict, annotation_id
 
 def create_bubble_annotation(bbox_orig, image_id, annotation_id):
     # Find contours (boundary lines)
@@ -107,7 +108,7 @@ def create_bubble_result(bbox_orig, image_id, pred_id, pred_score):
     area = width*height
     annotation = {
         'image_id': image_id,
-        'id': pred_id,
+        #'id': pred_id,
         'category_id': 1,
         'score': pred_score.astype(float),
         'segmentation': [],
