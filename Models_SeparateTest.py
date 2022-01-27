@@ -1,8 +1,9 @@
-from pickle import FALSE, TRUE
+# imports
 from numpy.lib.function_base import append
 from TFODPaths import get_paths_and_files
 from Create_CocoJson import add_annot_to_dict, create_coco_annot, create_coco_results, save_json_file
-from SeparateTest_Functions import exclude_partial_pred, get_absolute_pixels, get_visualization_colors, get_bubble_pred_thresh
+from SeparateTest_Functions import exclude_partial_pred, get_absolute_pixels, get_visualization_colors, get_bubble_pred_thresh, unite_detection_dicts
+from SeparateTest_Functions import unite_detection_dicts, plot_Bcount, hist_Bdiameter, hist_compare_Bdiameter, boxplot_compare_Bdiameter
 
 import os
 import tensorflow as tf
@@ -16,7 +17,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
-
 import xmltodict
 import pprint
 
@@ -133,20 +133,6 @@ def get_annotated_Diameters(dict):
     box_dict['detection_scores'] = np.ones(len(dict_list), dtype=int)
     return diameter_list, box_dict
 
-def unite_detection_dicts(dict,img_name,pdict,adict):
-    """Unite detection dicts from prediction and annotation"""
-    dict[img_name+img_format]={}
-    a1=pdict["detection_boxes"]
-    a2=adict["detection_boxes"]
-    dict[iname+img_format]["detection_boxes"] = np.concatenate((a1, a2), axis=0)
-    a3=pdict['detection_classes']
-    a4=adict['detection_classes']
-    dict[iname+img_format]['detection_classes']=np.concatenate((a3, a4), axis=0)
-    a5=pdict['detection_scores']
-    a6=adict['detection_scores']
-    dict[iname+img_format]['detection_scores']=np.concatenate((a5, a6), axis=0)
-    return dict
-
 def visualize_detections(img_path,detect_dict,score_thresh,img_name,color_id,
                         discard_labels=True,discard_scores=True,discard_track_ids=True):
     """Visualize generated detections in test image"""
@@ -181,75 +167,6 @@ def visualize_detections(img_path,detect_dict,score_thresh,img_name,color_id,
     plt.savefig(save_path)
     plt.close()
     print("Visualized Detections saved in: ", str(save_path))
-
-# TODO outsource plots
-def hist_Bdiameter(diam,hbins,img_name):
-    """Plot histogram and probability density of the number of detected bubbles
-        (kernel density estimation - Gaussian)
-    input: list containing diameters of all bubbles in one image
-           bins in histogram; name of img"""
-    sns.histplot(diam,bins=hbins,kde=True,color='darkblue',stat='density')
-    plt.xlabel('Bubble diameter [mm]')
-    plt.ylabel('Density')
-    plt.title(img_name)
-    plt.savefig(os.path.join(model_tested_path,f'Diam_HistDens_{img_name}.png'))
-    plt.close()
-    print(f'Diameter Hist+Dens saved under {model_tested_path} for {img_name}')
-
-def hist_compare_Bdiameter(diam_pred,diam_annot,my_bins,img_name):
-    """Plot histogram and probability density of the number of detected bubbles
-        (kernel density estimation - Gaussian)
-    input: lists containing diameters from prediction and annotation
-           bins in histogram; name of img"""
-    # plot two histograms in one figure
-    sns.histplot(diam_pred,bins=my_bins,kde=True,stat='density',color="green",label="Prediction")
-    sns.histplot(diam_annot,bins=my_bins,kde=True,stat='density',color="blue",label="Annotation")
-    plt.xlabel('Bubble diameter [mm]')
-    plt.ylabel('Density')
-    plt.title(img_name)
-    plt.legend()
-    plt.savefig(os.path.join(model_tested_path,f'Diam_HistComp_{img_name}.png'))
-    plt.close()
-    print(f'Diameter Compare Hist saved under {model_tested_path} for {img_name}')
-
-def boxplot_compare_Bdiameter(diam_pred,diam_annot,img_name):
-    """Boxplots containing statistical summary of diameter data
-    input: lists containing diameters from prediction and annotation
-           name of image"""
-    fig, ax = plt.subplots()
-    ax.boxplot([diam_pred,diam_annot])
-    ax.set_xticklabels(['Prediction','Annotation'])
-    # print number of observations into plot
-    n_pred, n_annot = len(diam_pred), len(diam_annot)
-    textstr = '\n'.join(["Observations","Predicition: "+str(n_pred),"Annotation: "+str(n_annot)])
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    ax.text(0.4, 0.95, textstr, transform=ax.transAxes, fontsize=10,verticalalignment='top', bbox=props)
-    plt.title('Statistical summary: '+img_name)
-    plt.savefig(os.path.join(model_tested_path,f'Diam_Boxplot_{img_name}.png'))
-    plt.close()
-    print(f'Boxplots saved under {model_tested_path} for {img_name}')
-
-def plot_Bcount(dict):
-    """Plot number of detected bubbles over time
-    (timestamps must be indicated in image name)
-    input: dictionary containing number of detected bubbles
-           image names as keys"""
-    Bcount = list(dict.values())
-    dk=dict.keys()
-    # remove tail of key string
-    splits = [key.split('_')[0] for key in dk]
-    # remove "t" in front of time indication
-    times_str = [s.split('t')[1] for s in splits]
-    # get timestamps as int
-    times = [int(t) for t in times_str]
-    plt.plot(times, Bcount, 'o')
-    plt.xlabel('Time')
-    plt.ylabel('Bubble count [-]')
-    name = os.path.basename(os.path.normpath(test_path))
-    plt.title("Total number of bubbles: "+name)
-    plt.savefig(os.path.join(model_tested_path,f'BCount_{name}.png'))
-    plt.close()
-    print(f'Bubble count plot saved under {model_tested_path}')
 
 #################################
 # START PREDICTION ON TEST IMAGES
@@ -366,11 +283,11 @@ for ipath in TESTIMGS_PATHS:
     ipred = generate_detections(ipath)
     bubble_detections[img_name] = ipred
     # exclude detections that are cut off
-    ipred_wo_partials[img_name] = exclude_partial_pred(ipred,ipath,abs_dist=4)
+    ipred_wo_partials[img_name] = exclude_partial_pred(ipred,ipath,abs_dist=2)
     # save bounding boxes with min threshold to dict
     bboxes_thresh[img_name] = get_bubble_pred_thresh(ipred_wo_partials[img_name],MIN_SCORE_THRESH)
     # Set color for visualization of boxes (102 = green)
-    color_id_p = get_visualization_colors(ipred_wo_partials[img_name],color_id_p,iname,0.0005)
+    color_id_p = get_visualization_colors(ipred_wo_partials[img_name],color_id_p,iname,MIN_SCORE_THRESH,0.0005)
     # visualize thresholded detections (saved in tested directory), show scores
     visualize_detections(ipath,ipred_wo_partials[img_name],MIN_SCORE_THRESH,img_name,color_id_p[iname],discard_scores=False)
     # save thresholded bubble diameters to dict
@@ -403,17 +320,17 @@ if TESTANNOT_PATHS:
         bmax = max([max(d_pred),max(d_annot)])
         d_bins = np.linspace(bmin,bmax,25)
         # Bubble Diam Hist of Prediction
-        #diameter_hist_pred = hist_Bdiameter(d_pred,d_bins,("Pred_"+iname))
+        diameter_hist_pred = hist_Bdiameter(d_pred,d_bins,("Pred_"+iname), model_tested_path)
         # Bubble Diam Hist of Annotation
-        #diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname))
+        diameter_hist_annot = hist_Bdiameter(d_annot,d_bins,("Annot_"+iname), model_tested_path)
         # Comparison from Annotation and Prediction (Histogram)
-        diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,iname)
+        diameter_hist_comp = hist_compare_Bdiameter(d_pred,d_annot,d_bins,iname,model_tested_path)
         # Comparison from Annotation and Prediction (Boxplot)
-        diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname)
+        diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname,model_tested_path)
         # visualize pred boxes in preexisting annot box visualization
-        # TODO check what goes wrong with coloring the bounding boxes
         color_id_ap = np.concatenate((color_id_p[iname],color_id_a[iname]),axis=0)
-        ap_detections[iname] = unite_detection_dicts(ap_detections,iname,ipred_wo_partials[img_name],annot_detections[(iname+'.xml')])
+        ap_detections[iname] = unite_detection_dicts(ap_detections,img_name,ipred_wo_partials[img_name],
+                                                    annot_detections[(iname+'.xml')],MIN_SCORE_THRESH)
         visualize_detections(ipath,ap_detections[img_name],MIN_SCORE_THRESH,
                             (iname+'_CompViz'+img_format),color_id_ap)
 else:
@@ -424,9 +341,9 @@ else:
         bmax = max(bubble_diameters[j])
         d_bins = np.linspace(bmin,bmax,25)
         # Bubble Diam from Prediction
-        diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j))
+        diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
         # Bubble Diam from Prediction
-        diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j))
+        diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
 
 # str split needs to be adjusted before generating plot!
-plot_Bcount(bubble_number)
+plot_Bcount(bubble_number,test_path,model_tested_path)
