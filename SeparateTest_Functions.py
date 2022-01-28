@@ -93,7 +93,7 @@ def get_pred_thresh(detect_dict,score_thresh,pred=True):
         pass
     return detect_dict
 
-def get_visualization_colors(detect_dict,color_dict,img_name,score_thresh,area_thresh):
+def get_visualization_colors(detect_dict,color_dict,img_name,score_thresh,img_path):
     """Sets colors for bounding boxes with min. score of score_thresh
     Smallest bounding boxes obtain a different color"""
     scores = detect_dict["detection_scores"]
@@ -101,7 +101,12 @@ def get_visualization_colors(detect_dict,color_dict,img_name,score_thresh,area_t
     thresh_boxes = boxes[scores > score_thresh]
     # 102 green
     color_dict[img_name] = np.full(len(thresh_boxes), 102, dtype=int)
+    # color for smalles bubbles
     i_smallest = []
+    # set area threshold (according to COCO metrics "small"<32^2 pixels)
+    img = cv2.imread(img_path)
+    im_height, im_width, channels = img.shape # pixel values
+    area_thresh = 32**2 / (im_height*im_width) # relative area value
     for i, box in enumerate(thresh_boxes):
         ymin, xmin, ymax, xmax = box[0], box[1], box[2], box[3]
         bwidth = xmax - xmin
@@ -115,20 +120,20 @@ def get_visualization_colors(detect_dict,color_dict,img_name,score_thresh,area_t
     color_dict[img_name][i_smallest] = 128
     return color_dict
 
-def unite_detection_dicts(dict,img_name,pdict,adict,score_thresh):
+def unite_detection_dicts(dict,pdict,adict,score_thresh):
     """Unite detection dicts from prediction and annotation
     Predicted detections thresholded my minimum score"""
-    dict[img_name]={}
+    dict={}
     i_thresh = pdict["detection_scores"] > score_thresh
     a1=pdict["detection_boxes"][i_thresh]
     a2=adict["detection_boxes"]
-    dict[img_name]["detection_boxes"] = np.concatenate((a1, a2), axis=0)
+    dict["detection_boxes"] = np.concatenate((a1, a2), axis=0)
     a3=pdict['detection_classes'][i_thresh]
     a4=adict['detection_classes']
-    dict[img_name]['detection_classes']=np.concatenate((a3, a4), axis=0)
+    dict['detection_classes']=np.concatenate((a3, a4), axis=0)
     a5=pdict['detection_scores'][i_thresh]
     a6=adict['detection_scores']
-    dict[img_name]['detection_scores']=np.concatenate((a5, a6), axis=0)
+    dict['detection_scores']=np.concatenate((a5, a6), axis=0)
     return dict
 
 ############## PLOTS ##########################

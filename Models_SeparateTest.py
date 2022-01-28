@@ -23,7 +23,7 @@ import pprint
 """Annotations and Checkpoints of Model required as input"""
 
 # indicate custom model & desired checkpoint from training
-CUSTOM_MODEL = 'my_centernet_hg104_1024_5'
+CUSTOM_MODEL = 'my_centernet_hg104_1024_7'
 CUSTOM_CHECKPOINT = 'ckpt-21'
 # max. allowed detections
 max_detect = 500
@@ -133,7 +133,7 @@ def get_annotated_Diameters(dict):
     box_dict['detection_scores'] = np.ones(len(dict_list), dtype=int)
     return diameter_list, box_dict
 
-def visualize_detections(img_path,detect_dict,score_thresh,img_name,color_id,
+def visualize_detections(img_path,detect_dict,score_thresh,save_name,color_id,
                         discard_labels=True,discard_scores=True,discard_track_ids=True):
     """Visualize generated detections in test image"""
     img = cv2.imread(img_path)
@@ -163,7 +163,7 @@ def visualize_detections(img_path,detect_dict,score_thresh,img_name,color_id,
                 skip_track_ids=discard_track_ids)
     tested_fig = plt.imshow(cv2.cvtColor(image_np_with_detections, cv2.COLOR_BGR2RGB))
     # save visualization in "tested" directory
-    save_path = os.path.join(model_tested_path,img_name)
+    save_path = os.path.join(model_tested_path,save_name)
     plt.savefig(save_path)
     plt.close()
     print("Visualized Detections saved in: ", str(save_path))
@@ -246,7 +246,7 @@ for apath in TESTANNOT_PATHS:
     # Set color for visualization of boxes (98=red, 118=dark red)
     color_id_a[iname] = np.full(len(annot_detect[annot_name]["detection_boxes"]), 115, dtype=int)
     # visualize annotated bubbles
-    #visualize_detections(ipath,annot_detections[annot_name],MIN_SCORE_THRESH,(iname+'_Annot'+img_format),color_id_a[iname])
+    visualize_detections(ipath,annot_detect[annot_name],MIN_SCORE_THRESH,(iname+'_Annot'+img_format),color_id_a[iname])
     # Statistical summary of data
     stat_annotDiam[annot_name] = pd.DataFrame(annot_diameters[annot_name]).describe()
     if CREATE_COCO_Annot:
@@ -289,7 +289,7 @@ for ipath in TESTIMGS_PATHS:
     # save bounding boxes with min threshold to dict
     detect_wop_thresh[img_name] = get_pred_thresh(detect_wo_partials[img_name],MIN_SCORE_THRESH)
     # Set color for visualization of boxes (102 = green)
-    color_id_p = get_visualization_colors(detect_wo_partials[img_name],color_id_p,iname,MIN_SCORE_THRESH,0.0005)
+    color_id_p = get_visualization_colors(detect_wo_partials[img_name],color_id_p,iname,MIN_SCORE_THRESH,ipath)
     # visualize thresholded detections (saved in tested directory), show scores
     visualize_detections(ipath,detect_wo_partials[img_name],MIN_SCORE_THRESH,img_name,color_id_p[iname],discard_scores=False)
     # save thresholded bubble diameters to dict
@@ -308,7 +308,7 @@ if CREATE_COCO_result:
     save_json_file(resultslist,model_tested_path,"COCO_results")
 
 ########### PLOTS ############
-ap_detections = {}
+ap_detect = {}
 if TESTANNOT_PATHS:
     for ipath in TESTIMGS_PATHS:
         img_name = os.path.basename(os.path.normpath(ipath))
@@ -331,9 +331,9 @@ if TESTANNOT_PATHS:
         diameter_boxpl_comp = boxplot_compare_Bdiameter(d_pred,d_annot,iname,model_tested_path)
         # visualize pred boxes in preexisting annot box visualization
         color_id_ap = np.concatenate((color_id_p[iname],color_id_a[iname]),axis=0)
-        ap_detections[iname] = unite_detection_dicts(ap_detections,img_name,detect_wo_partials[img_name],
+        ap_detect[iname] = unite_detection_dicts(ap_detect,detect_wo_partials[img_name],
                                                     annot_detect[(iname+'.xml')],MIN_SCORE_THRESH)
-        visualize_detections(ipath,ap_detections[img_name],MIN_SCORE_THRESH,
+        visualize_detections(ipath,ap_detect[iname],MIN_SCORE_THRESH,
                             (iname+'_CompViz'+img_format),color_id_ap)
 else:
     # only plot prediction histogram (no comparative plots)
