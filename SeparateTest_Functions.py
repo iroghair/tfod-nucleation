@@ -100,7 +100,7 @@ def get_visualization_colors(detect_dict,color_dict,img_name,score_thresh,img_pa
     boxes = detect_dict["detection_boxes"]
     thresh_boxes = boxes[scores > score_thresh]
     # 102 green
-    color_dict[img_name] = np.full(len(thresh_boxes), 102, dtype=int)
+    color_dict = np.full(len(thresh_boxes), 102, dtype=int)
     # color for smalles bubbles
     i_smallest = []
     # set area threshold (according to COCO metrics "small"<32^2 pixels)
@@ -117,7 +117,7 @@ def get_visualization_colors(detect_dict,color_dict,img_name,score_thresh,img_pa
         else:
             pass
     # give the smallest bounding boxes a different color (128 yellow)
-    color_dict[img_name][i_smallest] = 128
+    color_dict[i_smallest] = 128
     return color_dict
 
 def unite_detection_dicts(dict,pdict,adict,score_thresh):

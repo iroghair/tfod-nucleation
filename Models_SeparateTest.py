@@ -289,7 +289,7 @@ for ipath in TESTIMGS_PATHS:
     # save bounding boxes with min threshold to dict
     detect_wop_thresh[img_name] = get_pred_thresh(detect_wo_partials[img_name],MIN_SCORE_THRESH)
     # Set color for visualization of boxes (102 = green)
-    color_id_p = get_visualization_colors(detect_wo_partials[img_name],color_id_p,iname,MIN_SCORE_THRESH,ipath)
+    color_id_p[iname] = get_visualization_colors(detect_wo_partials[img_name],color_id_p,iname,MIN_SCORE_THRESH,ipath)
     # visualize thresholded detections (saved in tested directory), show scores
     visualize_detections(ipath,detect_wo_partials[img_name],MIN_SCORE_THRESH,img_name,color_id_p[iname],discard_scores=False)
     # save thresholded bubble diameters to dict
@@ -301,6 +301,7 @@ for ipath in TESTIMGS_PATHS:
     if CREATE_COCO_result:
         # get absolute pixel values
         ipred_wop_thresh_abs[img_name]=get_absolute_pixels(detect_wop_thresh[img_name],ipath)
+        #ipred_wop_thresh_abs[img_name]=get_absolute_pixels(detect[img_name],ipath)
         # add bboxes (all scores) to COCO results list
         resultslist = create_coco_results(ipred_wop_thresh_abs[img_name],iname,resultslist)
 # save COCO results to json file

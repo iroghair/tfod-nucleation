@@ -15,12 +15,11 @@ from io import StringIO
 """Load json file of ground truth and detection"""
 # indicate custom model & desired checkpoint from training
 CUSTOM_MODEL = 'my_centernet_hg104_1024_7'
-CUSTOM_CHECKPOINT = 'ckpt-21'
-# max. allowed detections
-max_detect = 500
+TESTED_IMG_FOLDER = 'test_maskJGIR_thresh0.5'
+
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
-model_tested_path = os.path.join(paths['IMAGE_PATH'],'tested',CUSTOM_MODEL,'test_thresh0.5')
+model_tested_path = os.path.join(paths['IMAGE_PATH'],'tested',CUSTOM_MODEL,TESTED_IMG_FOLDER)
 
 annType = 'bbox'
 #path_to_annotations_dir = os.path.join(path_to_coco_dir, 'annotations')
