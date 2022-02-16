@@ -1,8 +1,10 @@
+from cProfile import label
 import os
 import cv2 
 import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
+from ODE_bubble_growth import get_Rb
 
 def exclude_partial_pred(detect_dict,img_path,abs_dist):
     """Removes bounding boxes from detection dict that touch the image boundaries
@@ -178,14 +180,50 @@ def plot_avrg_Bdiam(dict, test_path, save_path):
     times_str = [s.split('t')[1] for s in splits]
     # get timestamps as int
     times = [int(t) for t in times_str]
-    plt.plot(times, Bdiam, 'o')
+    # ODE numerical solution
+    R_b, t = get_Rb() # bubble radius [m], time [s]
+    t_ODE = t / 60 # time vector [min]
+    d_B_ODE_m = R_b * 2 # bubble diameter [m]
+    d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
+    plt.plot(times, Bdiam, 'o', label="CNN")
+    plt.plot(t_ODE,d_B_ODE, label="ODE")
     plt.xlabel('Time [min]')
-    plt.ylabel('Average bubble diameter [mm]')
+    plt.ylabel('Average bubble diameter $D_b$(t) [mm]')
     name = os.path.basename(os.path.normpath(test_path))
     plt.title(name)
+    plt.legend()
     plt.savefig(os.path.join(save_path,f'Avrg_Diam.png'))
     plt.close()
     print(f'Average diameter plot saved under {save_path}')
+
+def plot_avrg_Bdiam_sqrt(dict, test_path, save_path):
+    """Plot average bubble diameter over time
+    (timestamps must be indicated in image name)
+    input: dictionary containing average bubble diameter
+           image names as keys"""
+    Bdiam = list(dict.values())
+    dk=dict.keys()
+    # remove tail of key string
+    splits = [key.split('_')[0] for key in dk]
+    # remove "t" in front of time indication
+    times_str = [s.split('t')[1] for s in splits]
+    # get timestamps as int
+    times = [int(t) for t in times_str]
+    # ODE numerical solution
+    R_b, t = get_Rb() # bubble radius [m], time [s]
+    t_ODE = t / 60 # time vector [min]
+    d_B_ODE_m = R_b * 2 # bubble diameter [m]
+    d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
+    plt.plot(np.sqrt(times), Bdiam, 'o', label="CNN")
+    plt.plot(np.sqrt(t_ODE),d_B_ODE, label="ODE")
+    plt.xlabel('\u221At')
+    plt.ylabel('Average bubble diameter $D_b$(t) [mm]')
+    name = os.path.basename(os.path.normpath(test_path))
+    plt.title(name)
+    plt.legend()
+    plt.savefig(os.path.join(save_path,f'Avrg_Diam_sqrt.png'))
+    plt.close()
+    print(f'Average diameter plot (sqrt) saved under {save_path}')
 
 def hist_compare_Bdiameter(diam_pred,diam_annot,my_bins,img_name,save_path):
     """Plot histogram and probability density of the number of detected bubbles

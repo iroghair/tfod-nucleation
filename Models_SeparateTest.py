@@ -2,7 +2,7 @@
 from numpy.lib.function_base import append
 from TFODPaths import get_paths_and_files
 from Create_CocoJson import add_annot_to_dict, create_coco_annot, create_coco_results, save_json_file
-from SeparateTest_Functions import exclude_partial_pred, get_absolute_pixels, get_visualization_colors, get_pred_thresh, plot_avrg_Bdiam, unite_detection_dicts
+from SeparateTest_Functions import exclude_partial_pred, get_absolute_pixels, get_visualization_colors, get_pred_thresh, plot_avrg_Bdiam, plot_avrg_Bdiam_sqrt, unite_detection_dicts
 from SeparateTest_Functions import unite_detection_dicts, plot_Bcount, hist_Bdiameter, hist_compare_Bdiameter, boxplot_compare_Bdiameter, hist_all_pred_diams
 
 import os
@@ -361,11 +361,13 @@ else:
         # Bubble Diam from Prediction
         diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
 
+# predicted average bubble diam. + solution from ODE
 plot_avrg_Bdiam(avrg_diam,test_path,model_tested_path)
+# predicted average bubble diam. + solution from ODE
+plot_avrg_Bdiam_sqrt(avrg_diam,test_path,model_tested_path)
 # str split for image names in function needs to be adjusted before generating plot!
 plot_Bcount(bubble_number,test_path,model_tested_path)
 # joint histograms of prediction
 # check arrangement of subplots (depending on number of images)!
 bins = np.linspace(min(bmins),max(bmaxs),25)
 hist_all_pred_diams(bubble_diameters,bins,test_path,model_tested_path)
-x=1
