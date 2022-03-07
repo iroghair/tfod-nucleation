@@ -1,16 +1,47 @@
 from cProfile import label
 import os
-import cv2 
+import json
+import cv2
+import imutils
 import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
 from ODE_bubble_growth import get_Rb
 
-def exclude_partial_pred(detect_dict,img_path,abs_dist):
+def get_image(im_path, bg_img):
+    img = cv2.imread(im_path)
+    parent_path = os.path.dirname(im_path)
+    img_set = os.path.basename(parent_path)
+    # to grayscale
+    #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # adjust contrast and brightness
+    #alpha = 1 # Contrast control (1.0-3.0)
+    #beta = 0 # Brightness control (0-100)
+    #img = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+    # subtract background
+    #img = cv2.absdiff(img, bg_img)
+    #cv2.subtract(img1,img2)
+    # Opening JSON file (contains postprocessing parameters)
+    json_path = os.path.join('Tensorflow', 'workspace','images','Img_postproc_params.json')
+    f = open(json_path)
+    # return JSON object as dictionary
+    data = json.load(f)
+    # parameters for specific data set
+    d = data[img_set]
+    rot_ang,x1,y1,w,h = d['rotate'],d['xmin'],d['ymin'],d['width'],d['height']
+    # rotate image (+ counterclockwise, - clockwise)
+    img = imutils.rotate(img, angle=-rot_ang)
+    # crop image
+    img = img[y1:y1+h, x1:x1+w]
+    return img
+
+def exclude_partial_pred(detect_dict,img,abs_dist):
     """Removes bounding boxes from detection dict that touch the image boundaries
     Goal: remove partial detections
     abs_dist = allowed distance [in pixels] of bbox to border of img"""
-    img = cv2.imread(img_path)
+    #img = cv2.imread(img_path)
+    # TODO works?
+    #img = get_image(img_path)
     im_height, im_width, channels = img.shape
     xdist_rel = abs_dist/im_width
     ydist_rel = abs_dist/im_height
@@ -36,9 +67,9 @@ def exclude_partial_pred(detect_dict,img_path,abs_dist):
     detect_dict['detection_boxes_strided'] = np.delete(strided, rows, 0)
     return detect_dict
 
-def get_absolute_pixels(detect_dict,img_path):
+def get_absolute_pixels(detect_dict,img):
     """Gets absolute pixel values for relative bounding boxes"""
-    img = cv2.imread(img_path)
+    #img = cv2.imread(img_path)
     im_height, im_width, channels = img.shape
     boxes = detect_dict['detection_boxes']
     abs_boxes = []
@@ -100,7 +131,7 @@ def get_pred_thresh(detect_dict,score_thresh,pred=True):
         pass
     return detect_dict
 
-def get_visualization_colors(detect_dict,img_name,score_thresh,img_path):
+def get_visualization_colors(detect_dict,bg_img,score_thresh,img_path):
     """Sets colors for bounding boxes with min. score of score_thresh
     Smallest bounding boxes obtain a different color"""
     scores = detect_dict["detection_scores"]
@@ -111,7 +142,8 @@ def get_visualization_colors(detect_dict,img_name,score_thresh,img_path):
     # color for smalles bubbles
     i_smallest = []
     # set area threshold (according to COCO metrics "small"<32^2 pixels)
-    img = cv2.imread(img_path)
+    #img = cv2.imread(img_path)
+    img = get_image(img_path, bg_img)
     im_height, im_width, channels = img.shape # pixel values
     area_thresh = 32**2 / (im_height*im_width) # relative area value
     for i, box in enumerate(thresh_boxes):
@@ -310,3 +342,27 @@ def hist_all_pred_diams(dict,hist_bins,test_path,save_path):
     plt.savefig(os.path.join(save_path,f'All_Diams_Hist.png'))
     plt.close()
     print(f'Joint Diameter Hist saved under {save_path}.')
+
+def Bdiams_over_t(dict,save_path):
+    new_keys=[]
+    old_keys = list(dict)
+    # change keys of dict to respective time stamp
+    for k in old_keys:
+        # remove tail of key string
+        splits = k.split('_')[0]
+        # remove "t" in front of time indication
+        times_str = splits.split('t')[1]
+        new_keys.append(times_str)
+        # replace old key with new key
+        dict[times_str] = dict.pop(k)
+    # sort keys by timestamp
+    #new_keys.sort()
+    lists = sorted(dict.items()) # sorted by key, return a list of tuples
+    x, y = zip(*lists) # unpack a list of pairs into two tuples
+    for xe, ye in lists:
+        plt.scatter([xe]*len(ye), ye)
+    plt.xlabel('Time [min]')
+    plt.ylabel('Bubble diameter [mm]')
+    plt.savefig(os.path.join(save_path,f'All_BDiams_t.png'))
+    plt.close()
+    print(f'All Diameters over time-plot saved under {save_path}.')
