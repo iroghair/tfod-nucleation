@@ -4,18 +4,32 @@ import json
 import cv2
 import imutils
 import numpy as np
+import pandas as pd
+import datetime as dt
 from matplotlib import pyplot as plt
 import seaborn as sns
 from ODE_bubble_growth import get_Rb
 
-def get_image(im_path, bg_img):
+size=20
+params = {'legend.fontsize': 'large',
+          #'figure.figsize': (20,8),
+          'axes.labelsize': size,
+          'axes.titlesize': size,
+          'xtick.labelsize': size*0.75,
+          'ytick.labelsize': size*0.75,
+          'font.size': size*0.65,
+          'axes.titlepad': 25}
+plt.rcParams.update(params)
+
+def get_image(im_path, scaling_factor=1): #, bg_img):
     img = cv2.imread(im_path)
     parent_path = os.path.dirname(im_path)
     img_set = os.path.basename(parent_path)
-    # to grayscale
-    #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # to grayscale and back (black/white with RGB format)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     # adjust contrast and brightness
-    #alpha = 1 # Contrast control (1.0-3.0)
+    #alpha = 2.5 # Contrast control (1.0-3.0)
     #beta = 0 # Brightness control (0-100)
     #img = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
     # subtract background
@@ -33,6 +47,8 @@ def get_image(im_path, bg_img):
     img = imutils.rotate(img, angle=-rot_ang)
     # crop image
     img = img[y1:y1+h, x1:x1+w]
+    # rescaling image (resolution)
+    img = img.resize((int(img.width * scaling_factor), int(img.height * scaling_factor)))
     return img
 
 def exclude_partial_pred(detect_dict,img,abs_dist):
@@ -40,7 +56,6 @@ def exclude_partial_pred(detect_dict,img,abs_dist):
     Goal: remove partial detections
     abs_dist = allowed distance [in pixels] of bbox to border of img"""
     #img = cv2.imread(img_path)
-    # TODO works?
     #img = get_image(img_path)
     im_height, im_width, channels = img.shape
     xdist_rel = abs_dist/im_width
@@ -175,6 +190,26 @@ def unite_detection_dicts(pdict,adict,score_thresh):
     dict['detection_scores']=np.concatenate((a5, a6), axis=0)
     return dict
 
+def get_time_diff_name(img_paths, mode="sec"):
+    """Convert image names from "DSC_hhmmss" to time difference in seconds(?)"""
+    #TODO test if it workes; when to place it?
+    #Bdiam = list(dict.values())
+    #dk=dict.keys()
+    # remove "DSC__" from name
+    splits = [n.split('__')[1] for n in img_paths]
+    # remove file extension
+    abs_times_str = [n.split('.')[0] for n in splits]
+    # get datetimes (note: random year added)
+    abs_times = pd.to_datetime(abs_times_str,format='%H%M%S') #.to_series()
+    start_time = min(abs_times)
+    # time differences (timedelta)
+    rel_times = [t - start_time for t in abs_times]
+    rel_times_names = [t.total_seconds() for t in rel_times]
+    if mode=="min":
+        # convert to minutes (e.g. for large time differences)
+        rel_times_names = [t/60 for t in rel_times_names]
+    return rel_times
+
 ############## PLOTS ##########################
 
 def plot_Bcount(dict, test_path, save_path):
@@ -184,18 +219,22 @@ def plot_Bcount(dict, test_path, save_path):
            image names as keys"""
     Bcount = list(dict.values())
     dk=dict.keys()
-    # remove tail of key string
-    splits = [key.split('_')[0] for key in dk]
-    # remove "t" in front of time indication
-    times_str = [s.split('t')[1] for s in splits]
+    #TODO try out if naming works
+    if "t" in dk[0]:
+        # remove tail of key string
+        splits = [key.split('_')[0] for key in dk]
+        # remove "t" in front of time indication
+        times_str = [s.split('t')[1] for s in splits]
+    else:
+        times_str = dk
     # get timestamps as int
     times = [int(t) for t in times_str]
-    plt.plot(times, Bcount, 'o')
+    plt.plot(times, Bcount, 'ro',markersize=10)
     plt.xlabel('Time [min]')
     plt.ylabel('Bubble count [-]')
     name = os.path.basename(os.path.normpath(test_path))
     plt.title("Total number of bubbles: "+name)
-    plt.savefig(os.path.join(save_path,f'BubbleCount.png'))
+    plt.savefig(os.path.join(save_path,f'BubbleCount.png'),bbox_inches="tight")
     plt.close()
     print(f'Bubble count plot saved under {save_path}')
 
@@ -206,10 +245,13 @@ def plot_avrg_Bdiam(dict, test_path, save_path):
            image names as keys"""
     Bdiam = list(dict.values())
     dk=dict.keys()
-    # remove tail of key string
-    splits = [key.split('_')[0] for key in dk]
-    # remove "t" in front of time indication
-    times_str = [s.split('t')[1] for s in splits]
+    if "t" in dk[0]:
+        # remove tail of key string
+        splits = [key.split('_')[0] for key in dk]
+        # remove "t" in front of time indication
+        times_str = [s.split('t')[1] for s in splits]
+    else:
+        times_str = dk
     # get timestamps as int
     times = [int(t) for t in times_str]
     # ODE numerical solution
@@ -224,7 +266,7 @@ def plot_avrg_Bdiam(dict, test_path, save_path):
     name = os.path.basename(os.path.normpath(test_path))
     plt.title(name)
     plt.legend()
-    plt.savefig(os.path.join(save_path,f'Avrg_Diam.png'))
+    plt.savefig(os.path.join(save_path,f'Avrg_Diam.png'),bbox_inches="tight")
     plt.close()
     print(f'Average diameter plot saved under {save_path}')
 
@@ -235,25 +277,27 @@ def plot_avrg_Bdiam_sqrt(dict, test_path, save_path):
            image names as keys"""
     Bdiam = list(dict.values())
     dk=dict.keys()
-    # remove tail of key string
-    splits = [key.split('_')[0] for key in dk]
-    # remove "t" in front of time indication
-    times_str = [s.split('t')[1] for s in splits]
-    # get timestamps as int
+    if "t" in dk[0]:
+        # remove tail of key string
+        splits = [key.split('_')[0] for key in dk]
+        # remove "t" in front of time indication
+        times_str = [s.split('t')[1] for s in splits]
+    else:
+        times_str = dk
     times = [int(t) for t in times_str]
     # ODE numerical solution
     R_b, t = get_Rb() # bubble radius [m], time [s]
     t_ODE = t / 60 # time vector [min]
     d_B_ODE_m = R_b * 2 # bubble diameter [m]
     d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
-    plt.plot(np.sqrt(times), Bdiam, 'o', label="CNN")
-    plt.plot(np.sqrt(t_ODE),d_B_ODE, label="ODE")
+    plt.plot(np.sqrt(t_ODE),d_B_ODE, 'r', linewidth=5, label="Epstein, Plesset model")
+    plt.plot(np.sqrt(times), Bdiam, 'o', color='limegreen', markersize=10, label="Experiments")
     plt.xlabel('\u221At')
-    plt.ylabel('Average bubble diameter $D_b$(t) [mm]')
+    plt.ylabel('$D_b$(t) [mm]')#Average bubble diameter
     name = os.path.basename(os.path.normpath(test_path))
-    plt.title(name)
-    plt.legend()
-    plt.savefig(os.path.join(save_path,f'Avrg_Diam_sqrt.png'))
+    #plt.title(name)
+    plt.legend(loc='upper left')
+    plt.savefig(os.path.join(save_path,f'Avrg_Diam_sqrt.png'),bbox_inches="tight")
     plt.close()
     print(f'Average diameter plot (sqrt) saved under {save_path}')
 
@@ -269,7 +313,7 @@ def hist_compare_Bdiameter(diam_pred,diam_annot,my_bins,img_name,save_path):
     plt.ylabel('Probability density')
     plt.title(img_name)
     plt.legend()
-    plt.savefig(os.path.join(save_path,f'Diam_HistComp_{img_name}.png'))
+    plt.savefig(os.path.join(save_path,f'Diam_HistComp_{img_name}.png'),bbox_inches="tight")
     plt.close()
     print(f'Diameter Compare Hist saved under {save_path} for {img_name}')
 
@@ -286,7 +330,7 @@ def boxplot_compare_Bdiameter(diam_pred,diam_annot,img_name,save_path):
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
     ax.text(0.4, 0.95, textstr, transform=ax.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.title('Statistical summary: '+img_name)
-    plt.savefig(os.path.join(save_path,f'Diam_Boxplot_{img_name}.png'))
+    plt.savefig(os.path.join(save_path,f'Diam_Boxplot_{img_name}.png'),bbox_inches="tight")
     plt.close()
     print(f'Boxplots saved under {save_path} for {img_name}')
 
@@ -314,10 +358,12 @@ def hist_all_pred_diams(dict,hist_bins,test_path,save_path):
         # remove tail of key string
         splits = k.split('_')[0]
         # remove "t" in front of time indication
-        times_str = splits.split('t')[1]
-        new_keys.append(times_str)
+        #times_str = splits.split('t')[1]
+        #new_keys.append(times_str)
+        new_keys.append(splits)
         # replace old key with new key
-        dict[times_str] = dict.pop(k)
+        #dict[times_str] = dict.pop(k)
+        dict[splits] = dict.pop(k)
     # sort keys by timestamp
     new_keys.sort()
     # intialize figure
@@ -326,20 +372,20 @@ def hist_all_pred_diams(dict,hist_bins,test_path,save_path):
     fig.suptitle(name)
     ax_names = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9]
     plt.rcParams.update({'axes.titlesize':'small'})
-    plt.rcParams.update({'axes.titlepad':1}) 
+    plt.rcParams.update({'axes.titlepad':1})
     #sns.set(font_scale=1)
     # plot dict entries in individual histograms
     for i,nk in enumerate(new_keys):
-        sns.histplot(dict[nk],ax=ax_names[i],bins=hist_bins,kde=True,color='darkblue',stat='density')
+        sns.histplot(dict[nk],ax=ax_names[i],bins=hist_bins,kde=True,stat='density',color='red')#color='darkblue')
         ax_names[i].set_title(("t = "+nk+" min"))
         ax_names[i].set(ylabel=None)
     #plt.tick_params(labelcolor="none", bottom=False, left=False)
-    fig.text(0.5, 0.04, 'Bubble diameter [mm]', ha='center', va='center')
-    fig.text(0.08, 0.5, 'Probability density', ha='center', va='center', rotation='vertical')
+    fig.text(0.5, 0.01, 'Bubble diameter [mm]', ha='center', va='center', fontsize=size*0.75) #0.5,0.04
+    fig.text(0.06, 0.5, 'Probability density', ha='center', va='center', rotation='vertical',fontsize=size*0.75) #0.08,0.5
     #plt.tight_layout()
     # spacing between subplots
     plt.subplots_adjust(wspace=0.1,hspace=0.2)
-    plt.savefig(os.path.join(save_path,f'All_Diams_Hist.png'))
+    plt.savefig(os.path.join(save_path,f'All_Diams_Hist.png'),bbox_inches="tight")
     plt.close()
     print(f'Joint Diameter Hist saved under {save_path}.')
 
@@ -348,10 +394,13 @@ def Bdiams_over_t(dict,save_path):
     old_keys = list(dict)
     # change keys of dict to respective time stamp
     for k in old_keys:
-        # remove tail of key string
-        splits = k.split('_')[0]
-        # remove "t" in front of time indication
-        times_str = splits.split('t')[1]
+        if "t" in k: # for allessandros pics
+            # remove tail of key string
+            splits = k.split('_')[0]
+            # remove "t" in front of time indication
+            times_str = splits.split('t')[1]
+        else:
+            time_str = k
         new_keys.append(times_str)
         # replace old key with new key
         dict[times_str] = dict.pop(k)
@@ -360,9 +409,9 @@ def Bdiams_over_t(dict,save_path):
     lists = sorted(dict.items()) # sorted by key, return a list of tuples
     x, y = zip(*lists) # unpack a list of pairs into two tuples
     for xe, ye in lists:
-        plt.scatter([xe]*len(ye), ye)
+        plt.scatter([xe]*len(ye), ye, c='r', s=20)
     plt.xlabel('Time [min]')
     plt.ylabel('Bubble diameter [mm]')
-    plt.savefig(os.path.join(save_path,f'All_BDiams_t.png'))
+    plt.savefig(os.path.join(save_path,f'All_BDiams_t.png'),bbox_inches="tight")
     plt.close()
     print(f'All Diameters over time-plot saved under {save_path}.')
