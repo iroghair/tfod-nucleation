@@ -47,8 +47,8 @@ def get_image(im_path, scaling_factor=1): #, bg_img):
     img = imutils.rotate(img, angle=-rot_ang)
     # crop image
     img = img[y1:y1+h, x1:x1+w]
-    # rescaling image (resolution)
-    img = img.resize((int(img.width * scaling_factor), int(img.height * scaling_factor)))
+    # rescaling image (resolution) shape[1]=width, shape[0]=height
+    img = cv2.resize(img,(int(img.shape[1] * scaling_factor), int(img.shape[0] * scaling_factor)))
     return img
 
 def exclude_partial_pred(detect_dict,img,abs_dist):
