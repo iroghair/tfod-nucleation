@@ -23,7 +23,7 @@ import pprint
 """Annotations and Checkpoints of Model required as input"""
 
 # indicate custom model & desired checkpoint from training
-CUSTOM_MODEL = 'my_centernet_hg104_1024_7'
+CUSTOM_MODEL = 'my_centernet_hg104_1024_8'
 CUSTOM_CHECKPOINT = 'ckpt-21'
 # max. allowed detections
 max_detect = 1000
@@ -160,7 +160,7 @@ def visualize_detections(img,detect_dict,score_thresh,save_name,color_id,
                 # specify in absolute (pixel) or normalized coordinates
                 # before set to true
                 use_normalized_coordinates=norm_coord,
-                line_thickness=8, # default 6
+                line_thickness=15, # default 6
                 # max. number of boxes to draw
                 max_boxes_to_draw=max_detect,
                 min_score_thresh=score_thresh,
@@ -181,7 +181,7 @@ def visualize_detections(img,detect_dict,score_thresh,save_name,color_id,
 
 # set path of test images
 #test_path=os.path.join(paths['IMAGE_PATH'], 'test')
-test_path=os.path.join(paths['IMAGE_PATH'], '22_03_30_Exp2')
+test_path=os.path.join(paths['IMAGE_PATH'], '22_03_30_Exp1')
 #test_path=os.path.join(paths['IMAGE_PATH'], 'supersaturation_0.20')
 #test_path=os.path.join(paths['IMAGE_PATH'], 'H2_porousNickel')
 
@@ -192,8 +192,8 @@ img_width_mm = 20
 img_height_mm = 20
 
 # rescaling image
-# ONLY FOR IMAGES WITHOUT ANNOTATIONS
-scaling_factor = 0.25
+# ONLY FOR IMAGES WITHOUT ANNOTATIONS (with annot: 1)
+scaling_factor = 1
 
 ##################################
 TESTIMGS_PATHS = []
@@ -257,8 +257,8 @@ for apath in TESTANNOT_PATHS:
     iname = annot_name.split('.xml')[0]
     ipath = os.path.join(test_path,iname+img_format)
     im = get_image(ipath)
-    # Set color for visualization of boxes (98=red, 118=dark red)
-    color_id_a[iname] = np.full(len(annot_detect[annot_name]["detection_boxes"]), 115, dtype=int)
+    # Set color for visualization of boxes (98=red, 118=dark red, 115)
+    color_id_a[iname] = np.full(len(annot_detect[annot_name]["detection_boxes"]), 98, dtype=int)
     # visualize annotated bubbles
     visualize_detections(im,annot_detect[annot_name],MIN_SCORE_THRESH,(iname+'_Annot'+img_format),color_id_a[iname])
     # Statistical summary of data
@@ -270,10 +270,10 @@ for apath in TESTANNOT_PATHS:
         im_height=int(annots_dict[annot_name]["annotation"]["size"]["height"])
         im_width=int(annots_dict[annot_name]["annotation"]["size"]["width"])
         # get absolute pixel values [ymin, xmin, ymax, xmax]
-        annot_detect_abs[annot_name]=get_absolute_pixels(annot_detect_thresh[annot_name],ipath)
+        annot_detect_abs[annot_name]=get_absolute_pixels(annot_detect_thresh[annot_name],im)
         # only take n annotated boxes into account (no boxes with score=0)
         # COCO format bbox: [x, y, width, height]
-        annot_coco_dict,annot_id = add_annot_to_dict(annot_detect_thresh[annot_name]["detection_boxes"],annot_coco_dict, iname, im_height, im_width,annot_id)
+        annot_coco_dict,annot_id = add_annot_to_dict(annot_detect_abs[annot_name]["detection_boxes"],annot_coco_dict, iname, im_height, im_width,annot_id)
 if CREATE_COCO_Annot:
     save_json_file(annot_coco_dict,model_tested_path,"COCO_annot")
 
@@ -283,7 +283,7 @@ stat_BubbleDiam = {}
 detect = {}
 detect_wo_partials = {}
 detect_wop_thresh = {}
-ipred_wop_thresh_abs = {}
+detect_wop_thresh_abs = {}
 bubble_diameters = {}
 bubble_number = {}
 avrg_diam = {}
@@ -294,10 +294,13 @@ if os.path.isfile(os.path.join(model_tested_path,"COCO_results.json")):
 else:
     resultslist = []
     CREATE_COCO_result = True
-# TODO TRYOUT renaming with time differences
-TESTIMGS_PATHS.sort()
-imgnames_t_diff = get_time_diff_name(TESTIMGS_PATHS)
-i = 0
+
+# image naming
+if folder_name != 'test':
+    TESTIMGS_PATHS.sort()
+    imgnames_t_diff = get_time_diff_name(TESTIMGS_PATHS)
+i = 0 # idx for img naming
+
 for ipath in TESTIMGS_PATHS:
     # get img name (last part of img_path)
     img_name = os.path.basename(os.path.normpath(ipath))
@@ -306,7 +309,7 @@ for ipath in TESTIMGS_PATHS:
     # save detection to dict [ymin, xmin, ymax, xmax]
     ipred = generate_detections(im)
     # check if Allessandros imgs (containing "t" in name)
-    if "t" not in img_name:
+    if ("t" not in img_name) and ("image" not in img_name):
         img_name = imgnames_t_diff[i]
     detect[img_name] = ipred
     # exclude detections that are cut off
@@ -314,9 +317,9 @@ for ipath in TESTIMGS_PATHS:
     # save bounding boxes with min threshold to dict
     detect_wop_thresh[img_name] = get_pred_thresh(detect_wo_partials[img_name],MIN_SCORE_THRESH,pred=True)
     # Set color for visualization of boxes (102 = green)
-    color_id_p[iname] = get_visualization_colors(detect_wo_partials[img_name],back_img,MIN_SCORE_THRESH,ipath)
+    color_id_p[iname] = get_visualization_colors(detect_wo_partials[img_name],scaling_factor,MIN_SCORE_THRESH,ipath)
     # visualize thresholded detections (saved in tested directory), show scores
-    visualize_detections(im,detect_wo_partials[img_name],MIN_SCORE_THRESH,img_name,color_id_p[iname],discard_scores=False)
+    visualize_detections(im,detect_wo_partials[img_name],MIN_SCORE_THRESH,iname,color_id_p[iname],discard_scores=False)
     # save thresholded bubble diameters to dict
     bubble_diameters[img_name] = get_pred_bubble_diameter(im,detect_wop_thresh[img_name]["detection_boxes"])
     # statistical summary of diameters
@@ -328,10 +331,11 @@ for ipath in TESTIMGS_PATHS:
     bubble_number[img_name] = len(bubble_diameters[img_name])
     if CREATE_COCO_result:
         # get absolute pixel values
-        ipred_wop_thresh_abs[img_name]=get_absolute_pixels(detect_wop_thresh[img_name],im)
+        detect_wop_thresh_abs[img_name]=get_absolute_pixels(detect_wop_thresh[img_name],im)
         # add bboxes (all scores) to COCO results list
         # COCO format bbox: [x, y, width, height]
-        resultslist = create_coco_results(ipred_wop_thresh_abs[img_name],iname,resultslist)
+        resultslist = create_coco_results(detect_wop_thresh_abs[img_name],iname,resultslist)
+    i += 1 # raise counter for img naming
 # save COCO results to json file
 if CREATE_COCO_result:
     save_json_file(resultslist,model_tested_path,"COCO_results")
@@ -382,14 +386,31 @@ else:
             # Bubble Diam from Prediction
             diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
 
-# predicted average bubble diam. + solution from ODE
-plot_avrg_Bdiam(avrg_diam,test_path,model_tested_path)
-plot_avrg_Bdiam_sqrt(avrg_diam,test_path,model_tested_path)
-# all diameters over time
-Bdiams_over_t(bubble_diameters,model_tested_path)
-# str split for image names in function needs to be adjusted before generating plot!
-plot_Bcount(bubble_number,test_path,model_tested_path)
-# joint histograms of prediction
-# check arrangement of subplots (depending on number of images)!
-bins = np.linspace(min(bmins),max(bmaxs),25)
-hist_all_pred_diams(bubble_diameters,bins,test_path,model_tested_path)
+# do not create time series plots for artificial imgs   
+if folder_name != 'test':
+    # predicted average bubble diam. + solution from ODE
+    plot_avrg_Bdiam(avrg_diam,test_path,model_tested_path)
+    plot_avrg_Bdiam_sqrt(avrg_diam,test_path,model_tested_path)
+    # all diameters over time
+    Bdiams_over_t(bubble_diameters,model_tested_path)
+    # str split for image names in function needs to be adjusted before generating plot!
+    plot_Bcount(bubble_number,test_path,model_tested_path)
+    # joint histograms of prediction
+    # check arrangement of subplots (depending on number of images)!
+    bins = np.linspace(min(bmins),max(bmaxs),25)
+    #hist_all_pred_diams(bubble_diameters,bins,test_path,model_tested_path)
+
+# save into textfiles
+l=[]
+[l.append([k,v]) for k,v in avrg_diam.items()]
+textfile1=open("avrg_diam_Exp3.txt","w")
+for element in l:
+    textfile1.write(str(element) + "\n")
+textfile1.close()
+
+u=[]
+[u.append([k,v]) for k,v in bubble_number.items()]
+textfile2=open("bubble_number_Exp3.txt","w")
+for element in u:
+    textfile2.write(str(element) + "\n")
+textfile2.close()

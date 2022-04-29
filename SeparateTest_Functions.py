@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 from ODE_bubble_growth import get_Rb
 
-size=20
+size=15
 params = {'legend.fontsize': 'large',
           #'figure.figsize': (20,8),
           'axes.labelsize': size,
@@ -35,18 +35,20 @@ def get_image(im_path, scaling_factor=1): #, bg_img):
     # subtract background
     #img = cv2.absdiff(img, bg_img)
     #cv2.subtract(img1,img2)
-    # Opening JSON file (contains postprocessing parameters)
-    json_path = os.path.join('Tensorflow', 'workspace','images','Img_postproc_params.json')
-    f = open(json_path)
-    # return JSON object as dictionary
-    data = json.load(f)
-    # parameters for specific data set
-    d = data[img_set]
-    rot_ang,x1,y1,w,h = d['rotate'],d['xmin'],d['ymin'],d['width'],d['height']
-    # rotate image (+ counterclockwise, - clockwise)
-    img = imutils.rotate(img, angle=-rot_ang)
-    # crop image
-    img = img[y1:y1+h, x1:x1+w]
+    # no image manipulations needed for artificial test images
+    if img_set != 'test':
+        # Opening JSON file (contains postprocessing parameters)
+        json_path = os.path.join('Tensorflow', 'workspace','images','Img_postproc_params.json')
+        f = open(json_path)
+        # return JSON object as dictionary
+        data = json.load(f)
+        # parameters for specific data set
+        d = data[img_set]
+        rot_ang,x1,y1,w,h = d['rotate'],d['xmin'],d['ymin'],d['width'],d['height']
+        # rotate image (+ counterclockwise, - clockwise)
+        img = imutils.rotate(img, angle=-rot_ang)
+        # crop image
+        img = img[y1:y1+h, x1:x1+w]
     # rescaling image (resolution) shape[1]=width, shape[0]=height
     img = cv2.resize(img,(int(img.shape[1] * scaling_factor), int(img.shape[0] * scaling_factor)))
     return img
@@ -55,16 +57,15 @@ def exclude_partial_pred(detect_dict,img,abs_dist):
     """Removes bounding boxes from detection dict that touch the image boundaries
     Goal: remove partial detections
     abs_dist = allowed distance [in pixels] of bbox to border of img"""
-    #img = cv2.imread(img_path)
-    #img = get_image(img_path)
+    part_dict = dict(detect_dict)
     im_height, im_width, channels = img.shape
     xdist_rel = abs_dist/im_width
     ydist_rel = abs_dist/im_height
-    boxes = detect_dict['detection_boxes']
-    scores = detect_dict['detection_scores']
-    multscores = detect_dict['detection_multiclass_scores']
-    classes = detect_dict['detection_classes']
-    strided = detect_dict['detection_boxes_strided']
+    boxes = part_dict['detection_boxes']
+    scores = part_dict['detection_scores']
+    multscores = part_dict['detection_multiclass_scores']
+    classes = part_dict['detection_classes']
+    strided = part_dict['detection_boxes_strided']
     rows = [] # rows that will be deleted
     for i, box in enumerate(boxes):
         ymin, xmin, ymax, xmax = box[0], box[1], box[2], box[3]
@@ -72,21 +73,21 @@ def exclude_partial_pred(detect_dict,img,abs_dist):
         if (xmin<xdist_rel or ymin<ydist_rel or xmax>(1-xdist_rel) or ymax>(1-ydist_rel)):
             # delete respective rows from arrays in dict
             rows.append(i)
-            detect_dict['num_detections'] -= 1
+            part_dict['num_detections'] -= 1
         else:
             pass
-    detect_dict['detection_boxes'] = np.delete(boxes, rows, 0)
-    detect_dict['detection_scores'] = np.delete(scores, rows, 0)
-    detect_dict['detection_multiclass_scores'] = np.delete(multscores, rows, 0)
-    detect_dict['detection_classes'] = np.delete(classes, rows, 0)
-    detect_dict['detection_boxes_strided'] = np.delete(strided, rows, 0)
-    return detect_dict
+    part_dict['detection_boxes'] = np.delete(boxes, rows, 0)
+    part_dict['detection_scores'] = np.delete(scores, rows, 0)
+    part_dict['detection_multiclass_scores'] = np.delete(multscores, rows, 0)
+    part_dict['detection_classes'] = np.delete(classes, rows, 0)
+    part_dict['detection_boxes_strided'] = np.delete(strided, rows, 0)
+    return part_dict
 
 def get_absolute_pixels(detect_dict,img):
     """Gets absolute pixel values for relative bounding boxes"""
-    #img = cv2.imread(img_path)
+    abs_dict = dict(detect_dict)
     im_height, im_width, channels = img.shape
-    boxes = detect_dict['detection_boxes']
+    boxes = abs_dict['detection_boxes']
     abs_boxes = []
     for box in boxes:
         ymin, xmin, ymax, xmax = box[0], box[1], box[2], box[3]
@@ -94,34 +95,21 @@ def get_absolute_pixels(detect_dict,img):
         (top, left, bottom, right) = (ymin * im_height, xmin * im_width,
                                       ymax * im_height, xmax * im_width)
         abs_boxes.append((top, left, bottom, right))
-    detect_dict['detection_boxes'] = np.array(abs_boxes)
-    return detect_dict
-
-def get_pred_thresh_orig(detect_dict,score_thresh):
-    """Get bounding boxes with score over threshold score_thresh
-    output: numpy array with locations of bounding boxes"""
-    scores = detect_dict['detection_scores']
-    boxes = detect_dict['detection_boxes']
-    #print((i,scores[i]) for i in boxes if scores[i] > score_thresh)
-    #print((i,scores[i]) for i,v in enumerate(boxes) if scores[i] > score_thresh)
-    pred_thresh = []
-    for i, v in enumerate(boxes):
-        if scores[i] >= score_thresh:
-            pred_thresh.append(v)
-    pred_thresh = np.array(pred_thresh)
-    return pred_thresh
+    abs_dict['detection_boxes'] = np.array(abs_boxes)
+    return abs_dict
 
 def get_pred_thresh(detect_dict,score_thresh,pred=True):
     """Removes entries from detection dict of one image
     that belong to detection score < score_thresh
     pred=True for prediction dicts, since it contains other keys than annotation dict"""
-    boxes = detect_dict['detection_boxes']
-    scores = detect_dict['detection_scores']
-    classes = detect_dict['detection_classes']
+    thresh_dict = dict(detect_dict)
+    boxes = thresh_dict['detection_boxes']
+    scores = thresh_dict['detection_scores']
+    classes = thresh_dict['detection_classes']
     # only for prediction dicts
     if pred:
-        multscores = detect_dict['detection_multiclass_scores']
-        strided = detect_dict['detection_boxes_strided']
+        multscores = thresh_dict['detection_multiclass_scores']
+        strided = thresh_dict['detection_boxes_strided']
     else:
         pass
     rows = [] # rows that will be deleted
@@ -130,23 +118,23 @@ def get_pred_thresh(detect_dict,score_thresh,pred=True):
         if scores[i] < score_thresh:
             rows.append(i)
             if pred:
-                detect_dict['num_detections'] -= 1
+                thresh_dict['num_detections'] -= 1
             else:
                 pass
         else:
             pass
-    detect_dict['detection_boxes'] = np.delete(boxes, rows, 0)
-    detect_dict['detection_scores'] = np.delete(scores, rows, 0)
-    detect_dict['detection_classes'] = np.delete(classes, rows, 0)
+    thresh_dict['detection_boxes'] = np.delete(boxes, rows, 0)
+    thresh_dict['detection_scores'] = np.delete(scores, rows, 0)
+    thresh_dict['detection_classes'] = np.delete(classes, rows, 0)
     # only for prediciton dicts
     if pred:
-        detect_dict['detection_multiclass_scores'] = np.delete(multscores, rows, 0)
-        detect_dict['detection_boxes_strided'] = np.delete(strided, rows, 0)
+        thresh_dict['detection_multiclass_scores'] = np.delete(multscores, rows, 0)
+        thresh_dict['detection_boxes_strided'] = np.delete(strided, rows, 0)
     else:
         pass
-    return detect_dict
+    return thresh_dict
 
-def get_visualization_colors(detect_dict,bg_img,score_thresh,img_path):
+def get_visualization_colors(detect_dict,scaling_factor,score_thresh,img_path):
     """Sets colors for bounding boxes with min. score of score_thresh
     Smallest bounding boxes obtain a different color"""
     scores = detect_dict["detection_scores"]
@@ -158,7 +146,7 @@ def get_visualization_colors(detect_dict,bg_img,score_thresh,img_path):
     i_smallest = []
     # set area threshold (according to COCO metrics "small"<32^2 pixels)
     #img = cv2.imread(img_path)
-    img = get_image(img_path, bg_img)
+    img = get_image(img_path,scaling_factor)
     im_height, im_width, channels = img.shape # pixel values
     area_thresh = 32**2 / (im_height*im_width) # relative area value
     for i, box in enumerate(thresh_boxes):
@@ -192,9 +180,6 @@ def unite_detection_dicts(pdict,adict,score_thresh):
 
 def get_time_diff_name(img_paths, mode="sec"):
     """Convert image names from "DSC_hhmmss" to time difference in seconds(?)"""
-    #TODO test if it workes; when to place it?
-    #Bdiam = list(dict.values())
-    #dk=dict.keys()
     # remove "DSC__" from name
     splits = [n.split('__')[1] for n in img_paths]
     # remove file extension
@@ -204,11 +189,13 @@ def get_time_diff_name(img_paths, mode="sec"):
     start_time = min(abs_times)
     # time differences (timedelta)
     rel_times = [t - start_time for t in abs_times]
-    rel_times_names = [t.total_seconds() for t in rel_times]
+    rel_times_tot = [t.total_seconds() for t in rel_times]
+    rel_times_tot_str = [str(t)+' s' for t in rel_times_tot]
     if mode=="min":
         # convert to minutes (e.g. for large time differences)
-        rel_times_names = [t/60 for t in rel_times_names]
-    return rel_times
+        rel_times_tot = [t/60 for t in rel_times_tot]
+        rel_times_tot_str = [str(t)+' min' for t in rel_times_tot]
+    return rel_times_tot_str
 
 ############## PLOTS ##########################
 
@@ -218,18 +205,21 @@ def plot_Bcount(dict, test_path, save_path):
     input: dictionary containing number of detected bubbles
            image names as keys"""
     Bcount = list(dict.values())
-    dk=dict.keys()
-    #TODO try out if naming works
+    dk = list(dict) # dict keys
     if "t" in dk[0]:
         # remove tail of key string
         splits = [key.split('_')[0] for key in dk]
         # remove "t" in front of time indication
         times_str = [s.split('t')[1] for s in splits]
+        # get timestamps as int
+        times = [int(t) for t in times_str]
     else:
         times_str = dk
-    # get timestamps as int
-    times = [int(t) for t in times_str]
-    plt.plot(times, Bcount, 'ro',markersize=10)
+        # get timestamps as int
+        times = [round(float(key.split(' ')[0])) for key in times_str]
+        if dk[0].split(' ')[1] == 's': # convert sec to min
+            times = [t / 60 for t in times]
+    plt.plot(times, Bcount, 'o',markersize=3, color='limegreen')#,markersize=10)
     plt.xlabel('Time [min]')
     plt.ylabel('Bubble count [-]')
     name = os.path.basename(os.path.normpath(test_path))
@@ -244,25 +234,28 @@ def plot_avrg_Bdiam(dict, test_path, save_path):
     input: dictionary containing average bubble diameter
            image names as keys"""
     Bdiam = list(dict.values())
-    dk=dict.keys()
+    dk = list(dict) # dict keys
     if "t" in dk[0]:
         # remove tail of key string
         splits = [key.split('_')[0] for key in dk]
         # remove "t" in front of time indication
         times_str = [s.split('t')[1] for s in splits]
+        # get timestamps as int
+        times = [int(t) for t in times_str]
     else:
-        times_str = dk
-    # get timestamps as int
-    times = [int(t) for t in times_str]
+        # get timestamps as int
+        times = [round(float(key.split(' ')[0])) for key in dk]
+        if dk[0].split(' ')[1] == 's': # convert sec to min
+            times = [t / 60 for t in times]
     # ODE numerical solution
     R_b, t = get_Rb() # bubble radius [m], time [s]
     t_ODE = t / 60 # time vector [min]
     d_B_ODE_m = R_b * 2 # bubble diameter [m]
     d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
-    plt.plot(times, Bdiam, 'o', label="CNN")
-    plt.plot(t_ODE,d_B_ODE, label="ODE")
+    plt.plot(times, Bdiam, 'o', markersize=3, color='limegreen', label="Experiments")
+    plt.plot(t_ODE,d_B_ODE, label="Epstein, Plesset model")
     plt.xlabel('Time [min]')
-    plt.ylabel('Average bubble diameter $D_b$(t) [mm]')
+    plt.ylabel('$D_b$(t) [mm]') #Average bubble diameter 
     name = os.path.basename(os.path.normpath(test_path))
     plt.title(name)
     plt.legend()
@@ -276,27 +269,31 @@ def plot_avrg_Bdiam_sqrt(dict, test_path, save_path):
     input: dictionary containing average bubble diameter
            image names as keys"""
     Bdiam = list(dict.values())
-    dk=dict.keys()
+    dk = list(dict) # dict keys
     if "t" in dk[0]:
         # remove tail of key string
         splits = [key.split('_')[0] for key in dk]
         # remove "t" in front of time indication
         times_str = [s.split('t')[1] for s in splits]
+        # get timestamps as int
+        times = [int(t) for t in times_str]
     else:
-        times_str = dk
-    times = [int(t) for t in times_str]
+        # get timestamps as int
+        times = [round(float(key.split(' ')[0])) for key in dk]
+        if dk[0].split(' ')[1] == 's': # convert sec to min
+            times = [t / 60 for t in times]
     # ODE numerical solution
     R_b, t = get_Rb() # bubble radius [m], time [s]
     t_ODE = t / 60 # time vector [min]
     d_B_ODE_m = R_b * 2 # bubble diameter [m]
     d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
-    plt.plot(np.sqrt(t_ODE),d_B_ODE, 'r', linewidth=5, label="Epstein, Plesset model")
-    plt.plot(np.sqrt(times), Bdiam, 'o', color='limegreen', markersize=10, label="Experiments")
+    plt.plot(np.sqrt(times), Bdiam, 'o', markersize=3, color='limegreen', label="Experiments")
+    plt.plot(np.sqrt(t_ODE),d_B_ODE, label="Epstein, Plesset model")
     plt.xlabel('\u221At')
     plt.ylabel('$D_b$(t) [mm]')#Average bubble diameter
     name = os.path.basename(os.path.normpath(test_path))
     #plt.title(name)
-    plt.legend(loc='upper left')
+    plt.legend() #loc='upper left'
     plt.savefig(os.path.join(save_path,f'Avrg_Diam_sqrt.png'),bbox_inches="tight")
     plt.close()
     print(f'Average diameter plot (sqrt) saved under {save_path}')
@@ -348,22 +345,27 @@ def hist_Bdiameter(diam,hbins,img_name,save_path):
     plt.close()
     print(f'Diameter Hist+Dens saved under {save_path} for {img_name}')
 
-def hist_all_pred_diams(dict,hist_bins,test_path,save_path):
+def hist_all_pred_diams(detect_dict,hist_bins,test_path,save_path):
     """HISTOGRAMS OF BUBBLE DIAMETER PREDICTIONS FROM ALL IMAGES
     one subaxis per image"""
     new_keys=[]
-    old_keys = list(dict)
+    hist_dict = dict(detect_dict)
+    old_keys = list(hist_dict)
     # change keys of dict to respective time stamp
-    for k in old_keys:
-        # remove tail of key string
-        splits = k.split('_')[0]
-        # remove "t" in front of time indication
-        #times_str = splits.split('t')[1]
-        #new_keys.append(times_str)
-        new_keys.append(splits)
-        # replace old key with new key
-        #dict[times_str] = dict.pop(k)
-        dict[splits] = dict.pop(k)
+    if "t" in old_keys[0]: # for Alessandros images
+        for k in old_keys:
+            # remove tail of key string
+            splits = k.split('_')[0]
+            # remove "t" in front of time indication
+            times_str = splits.split('t')[1]
+            new_keys.append(times_str)
+            # replace old key with new key
+            hist_dict[times_str] = hist_dict.pop(k)
+    else:
+        for k in old_keys: # for new images
+            times_str = k.split(' ')[0]
+            new_keys.append(times_str)
+            hist_dict[times_str] = hist_dict.pop(k)
     # sort keys by timestamp
     new_keys.sort()
     # intialize figure
@@ -376,7 +378,7 @@ def hist_all_pred_diams(dict,hist_bins,test_path,save_path):
     #sns.set(font_scale=1)
     # plot dict entries in individual histograms
     for i,nk in enumerate(new_keys):
-        sns.histplot(dict[nk],ax=ax_names[i],bins=hist_bins,kde=True,stat='density',color='red')#color='darkblue')
+        sns.histplot(hist_dict[nk],ax=ax_names[i],bins=hist_bins,kde=True,stat='density',color='darkblue')
         ax_names[i].set_title(("t = "+nk+" min"))
         ax_names[i].set(ylabel=None)
     #plt.tick_params(labelcolor="none", bottom=False, left=False)
@@ -400,7 +402,11 @@ def Bdiams_over_t(dict,save_path):
             # remove "t" in front of time indication
             times_str = splits.split('t')[1]
         else:
-            time_str = k
+            splits = k.split(' ')[0] # remove unit
+            times_str = round(float(splits))
+            if k.split(' ')[1] == 's': # convert sec to min
+                times_str = str(round(times_str / 60))
+                #times_str = str(times_str / 60)
         new_keys.append(times_str)
         # replace old key with new key
         dict[times_str] = dict.pop(k)
