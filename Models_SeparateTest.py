@@ -160,7 +160,7 @@ def visualize_detections(img,detect_dict,score_thresh,save_name,color_id,
                 # specify in absolute (pixel) or normalized coordinates
                 # before set to true
                 use_normalized_coordinates=norm_coord,
-                line_thickness=15, # default 6
+                line_thickness=15, # default 6; new imgs 15; imgs Allessandro 8
                 # max. number of boxes to draw
                 max_boxes_to_draw=max_detect,
                 min_score_thresh=score_thresh,
@@ -181,15 +181,15 @@ def visualize_detections(img,detect_dict,score_thresh,save_name,color_id,
 
 # set path of test images
 #test_path=os.path.join(paths['IMAGE_PATH'], 'test')
-test_path=os.path.join(paths['IMAGE_PATH'], '22_03_30_Exp1')
-#test_path=os.path.join(paths['IMAGE_PATH'], 'supersaturation_0.20')
-#test_path=os.path.join(paths['IMAGE_PATH'], 'H2_porousNickel')
+#test_path=os.path.join(paths['IMAGE_PATH'], '22_03_30_Exp2')
+test_path=os.path.join(paths['IMAGE_PATH'], 'Exp2_Tracking')
+#test_path=os.path.join(paths['IMAGE_PATH'], 'Distr_Exp4')
 
 MIN_SCORE_THRESH = 0.5
 
 # indicate width and height of imgs [mm]
-img_width_mm = 20
-img_height_mm = 20
+img_width_mm = 17 #20 #17
+img_height_mm = 17 #20 #17
 
 # rescaling image
 # ONLY FOR IMAGES WITHOUT ANNOTATIONS (with annot: 1)
@@ -298,7 +298,9 @@ else:
 # image naming
 if folder_name != 'test':
     TESTIMGS_PATHS.sort()
-    imgnames_t_diff = get_time_diff_name(TESTIMGS_PATHS)
+    name_test = os.path.basename(os.path.normpath(TESTIMGS_PATHS[0]))
+    if ("t" not in name_test) and ("image" not in name_test):
+        imgnames_t_diff = get_time_diff_name(TESTIMGS_PATHS)
 i = 0 # idx for img naming
 
 for ipath in TESTIMGS_PATHS:
@@ -374,17 +376,18 @@ else:
     bmaxs = []
     # only plot prediction histogram (no comparative plots)
     for j in bubble_diameters.keys():
-        if bubble_diameters[j]:
-            # set histogram bins (same range for all hists)
-            bmin = min(bubble_diameters[j])
-            bmax = max(bubble_diameters[j])
-            bmins.append(bmin)
-            bmaxs.append(bmax)
-            d_bins = np.linspace(bmin,bmax,25)
-            # Bubble Diam from Prediction
-            diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
-            # Bubble Diam from Prediction
-            diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
+        if j !="0 s":
+            if bubble_diameters[j]:
+                # set histogram bins (same range for all hists)
+                bmin = min(bubble_diameters[j])
+                bmax = max(bubble_diameters[j])
+                bmins.append(bmin)
+                bmaxs.append(bmax)
+                d_bins = np.linspace(bmin,bmax,25)
+                # Bubble Diam from Prediction
+                diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
+                # Bubble Diam from Prediction
+                diameter_hist_pred = hist_Bdiameter((bubble_diameters[j]),d_bins,("Pred_"+j),model_tested_path)
 
 # do not create time series plots for artificial imgs   
 if folder_name != 'test':
@@ -398,19 +401,21 @@ if folder_name != 'test':
     # joint histograms of prediction
     # check arrangement of subplots (depending on number of images)!
     bins = np.linspace(min(bmins),max(bmaxs),25)
+    #bubble_diameters_copy = dict(bubble_diameters)
+    #bubble_diameters_copy.pop("0")
     #hist_all_pred_diams(bubble_diameters,bins,test_path,model_tested_path)
 
 # save into textfiles
 l=[]
 [l.append([k,v]) for k,v in avrg_diam.items()]
-textfile1=open("avrg_diam_Exp3.txt","w")
+textfile1=open("avrg_diam_Exp2Tracking.txt","w")
 for element in l:
     textfile1.write(str(element) + "\n")
 textfile1.close()
 
 u=[]
 [u.append([k,v]) for k,v in bubble_number.items()]
-textfile2=open("bubble_number_Exp3.txt","w")
+textfile2=open("bubble_number_Exp2Tracking.txt","w")
 for element in u:
     textfile2.write(str(element) + "\n")
 textfile2.close()

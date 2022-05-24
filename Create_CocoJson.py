@@ -42,7 +42,7 @@ def create_coco_annot():
     return jsondict
 
 def add_annot_to_dict(bbox_list,jsondict,img_id,img_height,img_width,annotation_id):
-    """Adds info of current image and all respective annotated bounding boxes
+    """Adds info of current image and all respective annotated bounding boxes [ymin, xmin, ymax, xmax]
     to COCO annotation dictionary"""
     # append image info to dict["images"]
     im_info = {
@@ -63,12 +63,15 @@ def add_annot_to_dict(bbox_list,jsondict,img_id,img_height,img_width,annotation_
     return jsondict, annotation_id
 
 def create_bubble_annotation(bbox_orig, image_id, annotation_id):
+    """input: bbox [ymin, xmin, ymax, xmax]
+    output format: [xmin, ymin, width, height]"""
     # Find contours (boundary lines)
     # Calculate the coco bounding box and area
-    x, y, max_x, max_y = bbox_orig
-    width = max_x - x
-    height = max_y - y
-    bbox = (x, y, width, height)
+    # ORIGINAL x, y, max_x, max_y = bbox_orig
+    ymin, xmin, ymax, xmax = bbox_orig
+    width = xmax - xmin
+    height = ymax - ymin
+    bbox = (xmin, ymin, width, height)
     area = width*height
     # annotation
     segmentations = []
@@ -99,12 +102,14 @@ def create_coco_results(pred_dict, img_id, jsonlist):
     return jsonlist
 
 def create_bubble_result(bbox_orig, image_id, pred_id, pred_score):
+    """input: bbox [ymin, xmin, ymax, xmax]
+    output format: [xmin, ymin, width, height]"""
     # Find contours (boundary lines)
     # Calculate the coco bounding box and area
-    x, y, max_x, max_y = bbox_orig
-    width = max_x - x
-    height = max_y - y
-    bbox = (x.astype(float), y.astype(float), width.astype(float), height.astype(float))
+    ymin, xmin, ymax, xmax = bbox_orig
+    width = xmax - xmin
+    height = ymax - ymin
+    bbox = (xmin.astype(float), ymin.astype(float), width.astype(float), height.astype(float))
     area = width*height
     annotation = {
         'image_id': image_id,

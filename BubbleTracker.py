@@ -12,12 +12,12 @@ from object_detection.utils import visualization_utils as viz_utils
 
 """Load json file of ground truth and detection"""
 # indicate custom model & desired checkpoint from training
-CUSTOM_MODEL = 'my_centernet_hg104_1024_7'
-TESTED_IMG_FOLDER = 'supersaturation_0.16_thresh0.5'
-IMG_FOLDER = 'supersaturation_0.16'
-img_format = '.tif'
-tracker_threshold = 50
-img_width_mm = 20
+CUSTOM_MODEL = 'my_centernet_hg104_1024_8'
+TESTED_IMG_FOLDER = 'Exp2_Tracking_thresh0.5'#'22_03_29_Exp2_thresh0.5' #'supersaturation_0.16_thresh0.5' ##
+IMG_FOLDER = 'Exp2_Tracking'#'22_03_29_Exp2'#'supersaturation_0.16' #
+img_format = '.jpg'#'.tif' #
+tracker_threshold = 1000 #100
+img_width_mm = 17 #20 [mm]
 
 def get_bdiams(img,bounding_boxes):
     """Get diameter of bubbles (averaged bounding box width, height)
@@ -37,12 +37,12 @@ def get_bdiams(img,bounding_boxes):
         #diameter_df = pd.DataFrame(diameter_list)
     return diameter_list
 
-def visualize_unmatched_bboxes(unmatched_t,iname,save_name,
+def visualize_unmatched_bboxes(unmatched_t,iname,save_name,colors,
                         norm_coord=True,discard_labels=True,discard_scores=True,discard_track_ids=True):
     """Visualize matches bounding boxes
     input: tuple containing unmatched bboxes in track img"""
     track_img_path = os.path.join(paths['IMAGE_PATH'],IMG_FOLDER,iname+img_format)
-    img_track = get_image(track_img_path,bg_img=None)
+    img_track = get_image(track_img_path)
     track_i_np = np.array(img_track)
     track_i_np_bb = track_i_np.copy()
     # Change bbox format: [xmin, ymin, width, height] --> [ymin, xmin, ymax, xmax]
@@ -59,15 +59,16 @@ def visualize_unmatched_bboxes(unmatched_t,iname,save_name,
                 # detection boxes
                 bboxes,
                 # name of the class
-                np.ones(len(boxes)),
+                np.ones(len(bboxes)),
                 # detection scores
-                np.ones(len(boxes)),
+                np.ones(len(bboxes)),
                 # category index
                 {"id": 0, "name": "Bubble"},
                 # colors
-                track_ids=np.full(len(boxes), 98, dtype=int),
-                line_thickness=6, # default 6
-                max_boxes_to_draw=n_unmatch_max, # default 20
+                track_ids=colors,
+                #track_ids=np.full(len(boxes), 98, dtype=int),
+                line_thickness=15, # default 6; Alessandros pics: 8; new pics: 15
+                max_boxes_to_draw=1000, # default 20
                 skip_labels=discard_labels,
                 skip_scores=discard_scores,
                 skip_track_ids=discard_track_ids)
@@ -78,22 +79,29 @@ def visualize_unmatched_bboxes(unmatched_t,iname,save_name,
     plt.close()
     print("Visualization of unmatched bboxes in: ", str(save_path))
 
-def hist_all_pred_diams(dict,hist_bins,save_path):
+def hist_all_pred_diams(detach_dict,hist_bins,save_path):
     """HISTOGRAMS OF DETACHMENT BUBBLE DIAMETER FROM ALL IMAGES (one subaxis per image)
     input: unmatched bubble diameters"""
     new_keys=[]
-    old_keys = list(dict)
+    hist_dict = dict(detach_dict)
+    old_keys = list(detach_dict)
     # change keys of dict to respective time stamp
-    for k in old_keys:
-        # remove tail of key string
-        splits = k.split('_')[0]
-        # remove "t" in front of time indication
-        times_str = splits.split('t')[1]
-        new_keys.append(times_str)
-        # replace old key with new key
-        dict[times_str] = dict.pop(k)
+    if "t" in old_keys[0]: # for Alessandros images
+        for k in old_keys:
+            # remove tail of key string
+            splits = k.split('_')[0]
+            # remove "t" in front of time indication
+            times_str = splits.split('t')[1]
+            new_keys.append(times_str)
+            # replace old key with new key
+            hist_dict[times_str] = hist_dict.pop(k)
+    else:
+        for k in old_keys: # for new images
+            times_str = k.split(' ')[0]
+            new_keys.append(times_str)
+            hist_dict[times_str] = hist_dict.pop(k)
     # sort keys by timestamp
-    new_keys.sort()
+    new_keys.sort(key=float)
     # intialize figure
     fig, ((ax1,ax2,ax3), (ax4,ax5,ax6), (ax7,ax8,ax9)) = plt.subplots(3, 3, sharex=True, sharey=True)
     fig.suptitle(IMG_FOLDER)
@@ -102,7 +110,7 @@ def hist_all_pred_diams(dict,hist_bins,save_path):
     plt.rcParams.update({'axes.titlepad':1}) 
     # plot dict entries in individual histograms
     for i,nk in enumerate(new_keys):
-        sns.histplot(dict[nk],ax=ax_names[i],bins=hist_bins,kde=True,color='darkblue',stat='density')
+        sns.histplot(hist_dict[nk],ax=ax_names[i],bins=hist_bins,kde=True,color='darkblue',stat='density')
         ax_names[i].set_title(("t = "+nk+" min"))
         ax_names[i].set(ylabel=None)
     fig.text(0.5, 0.04, 'Detachment diameter [mm]', ha='center', va='center')
@@ -123,17 +131,18 @@ with open(path_to_results) as json_file:
     json_data = json.load(json_file)
     print(json_data)
 df = pd.DataFrame(json_data)
-dict = {}
+json_dict = {}
 for img in df.image_id.unique():
-    dict[img] = df[df.image_id==img]
+    json_dict[img] = df[df.image_id==img]
 
-# bbox format [x, y, width, height]
+# Read out bboxes (format [x, y, width, height])
 box_dict = {}
-for key in dict:
-    d = dict[key]
+for key in json_dict:
+    d = json_dict[key]
     boxes = pd.DataFrame(d['bbox'].to_list(),columns=['x','y','width','height'])
     box_dict[key] = boxes.to_numpy()
 
+# Matching
 iname_sorted = sorted(box_dict.keys())
 idx = 0
 match_dict = {}
@@ -148,12 +157,19 @@ for iname in iname_sorted:
     # returns Tuple containing matches
     # result[0]: matches (track_idx, detection_idx)
     # result[1]: unmatched detections, idx
-    # result[2]: unmatched tracks, idx
+    # result[2]: unmatched tracks, idx = bubbles that "dissapear" (e.g. detach or coalesce)
     result = motrackers.centroid_kf_tracker.assign_tracks2detection_centroid_distances(bbox_tracks, bbox_detec, distance_threshold=tracker_threshold)
     img_names = iname+"_"+iname_sorted[idx+1]
     match_dict[img_names] = result
-    unmatch_bb_d[iname_sorted[idx+1]] = box_dict[iname_sorted[idx+1]][result[1]]
-    unmatch_bb_t[iname] = box_dict[iname][result[2]]
+    # check if empty
+    if np.any(result[1]):
+        unmatch_bb_d[iname_sorted[idx+1]] = box_dict[iname_sorted[idx+1]][result[1]]
+    else:
+        unmatch_bb_d[iname_sorted[idx+1]] = []
+    if np.any(result[2]):
+        unmatch_bb_t[iname] = box_dict[iname][result[2]]
+    else:
+        unmatch_bb_t[iname] = []
     idx += 1
     if idx == len(iname_sorted)-1:
         break
@@ -166,10 +182,12 @@ for key in match_dict:
     n_pairs.append(len(pairs))
     print(f'{len(pairs)} matched boxes for {key}')
 
-# number of unmatched bubbles
+# number of unmatched bubbles (detached or coalesced)
 n_unmatch = []
+n_unmatch_dict = {}
 for key in unmatch_bb_t:
     n_unmatch.append(len(unmatch_bb_t[key]))
+    n_unmatch_dict[key] = len(unmatch_bb_t[key])
     print(f'{len(unmatch_bb_t[key])} unmatched boxes for {key}')
 n_unmatch_max = max(n_unmatch)
 
@@ -178,26 +196,53 @@ unmatch_diams_t = {}
 bmins = []
 bmaxs = []
 for iname in unmatch_bb_t:
-    track_img_path = os.path.join(paths['IMAGE_PATH'],IMG_FOLDER,iname+img_format)
-    img_track = get_image(track_img_path,bg_img=None)
-    unmatch_diams_t[iname] = get_bdiams(img_track,unmatch_bb_t[iname])
-    bmins.append(min(unmatch_diams_t[iname]))
-    bmaxs.append(max(unmatch_diams_t[iname]))
+    # check if empty
+    if np.any(unmatch_bb_t[iname]):
+        track_img_path = os.path.join(paths['IMAGE_PATH'],IMG_FOLDER,iname+img_format)
+        img_track = get_image(track_img_path)
+        unmatch_diams_t[iname] = get_bdiams(img_track,unmatch_bb_t[iname])
+        bmins.append(min(unmatch_diams_t[iname]))
+        bmaxs.append(max(unmatch_diams_t[iname]))
 
 bins = np.linspace(min(bmins),max(bmaxs),25)
-hist_all_pred_diams(unmatch_diams_t,bins,model_tested_path)
+#hist_all_pred_diams(unmatch_diams_t,bins,model_tested_path)
 
 # VISUALIZATION
+unmatch_and_detec_bb = {}
+#color_unmatch = {}
+#color_detec = {}
+colors_bb = {}
 idx = 0
 for iname in iname_sorted:
-    # track img
-    visualize_unmatched_bboxes(unmatch_bb_t[iname],iname,'_Unmatched')
-    # vis. unmatched boxes in following image
-    next_iname = iname_sorted[idx+1]
-    visualize_unmatched_bboxes(unmatch_bb_t[iname],next_iname,'_LostBboxes')
-    #img1 = cv2.imread(os.path.join(model_tested_path,(iname+'_Unmatched')))
-    #img2 = cv2.imread(os.path.join(model_tested_path,(next_iname+'_LostBoxes')))
-    #vis = cv2.hconcat([img1,img2])
+    # check if empty
+    if np.any(unmatch_bb_t[iname]):
+        # track img
+        color_unmatch = np.full(len(unmatch_bb_t[iname]), 98, dtype=int)
+        visualize_unmatched_bboxes(unmatch_bb_t[iname],iname,'_Unmatched',color_unmatch)
+        # vis. unmatched boxes in following image
+        next_iname = iname_sorted[idx+1]
+        #visualize_unmatched_bboxes(unmatch_bb_t[iname],next_iname,'_LostBboxes',color_unmatch)
+        # visualize unmatched boxes in detection box visualization
+        unmatch_and_detec_bb[next_iname] = np.concatenate((unmatch_bb_t[iname], box_dict[next_iname]), axis=0)
+        color_detec = np.full(len(box_dict[next_iname]), 102, dtype=int)
+        colors_bb[next_iname] = np.concatenate((color_unmatch,color_detec),axis=0)
+        visualize_unmatched_bboxes(unmatch_and_detec_bb[next_iname],next_iname,'_Detec_and_Unmatch',colors_bb[next_iname])
     idx += 1
     if idx == len(iname_sorted)-1:
         break
+
+# save into textfiles
+l=[]
+[l.append([k,v]) for k,v in n_unmatch_dict.items()]
+textfile1=open("n_unmatched_Distr_Exp2.txt","w")
+for element in l:
+    textfile1.write(str(element) + "\n")
+textfile1.close()
+
+# todo calculate mean
+u=[]
+[u.append([w,y]) for w,y in unmatch_diams_t.items()]
+textfile2=open("diam_unmatched_Distr_Exp2.txt","w")
+for element in u:
+    textfile2.write(str(element) + "\n")
+textfile2.close()

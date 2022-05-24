@@ -219,7 +219,7 @@ def plot_Bcount(dict, test_path, save_path):
         times = [round(float(key.split(' ')[0])) for key in times_str]
         if dk[0].split(' ')[1] == 's': # convert sec to min
             times = [t / 60 for t in times]
-    plt.plot(times, Bcount, 'o',markersize=3, color='limegreen')#,markersize=10)
+    plt.plot(times, Bcount, 'o',markersize=6, color='limegreen')#,markersize=10)
     plt.xlabel('Time [min]')
     plt.ylabel('Bubble count [-]')
     name = os.path.basename(os.path.normpath(test_path))
@@ -252,7 +252,7 @@ def plot_avrg_Bdiam(dict, test_path, save_path):
     t_ODE = t / 60 # time vector [min]
     d_B_ODE_m = R_b * 2 # bubble diameter [m]
     d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
-    plt.plot(times, Bdiam, 'o', markersize=3, color='limegreen', label="Experiments")
+    plt.plot(times, Bdiam, 'o', markersize=6, color='limegreen', label="Experiments")
     plt.plot(t_ODE,d_B_ODE, label="Epstein, Plesset model")
     plt.xlabel('Time [min]')
     plt.ylabel('$D_b$(t) [mm]') #Average bubble diameter 
@@ -287,7 +287,7 @@ def plot_avrg_Bdiam_sqrt(dict, test_path, save_path):
     t_ODE = t / 60 # time vector [min]
     d_B_ODE_m = R_b * 2 # bubble diameter [m]
     d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
-    plt.plot(np.sqrt(times), Bdiam, 'o', markersize=3, color='limegreen', label="Experiments")
+    plt.plot(np.sqrt(times), Bdiam, 'o', markersize=6, color='limegreen', label="Experiments")
     plt.plot(np.sqrt(t_ODE),d_B_ODE, label="Epstein, Plesset model")
     plt.xlabel('\u221At')
     plt.ylabel('$D_b$(t) [mm]')#Average bubble diameter
@@ -367,7 +367,7 @@ def hist_all_pred_diams(detect_dict,hist_bins,test_path,save_path):
             new_keys.append(times_str)
             hist_dict[times_str] = hist_dict.pop(k)
     # sort keys by timestamp
-    new_keys.sort()
+    new_keys.sort(key=float)
     # intialize figure
     fig, ((ax1,ax2,ax3), (ax4,ax5,ax6), (ax7,ax8,ax9)) = plt.subplots(3, 3, sharex=True, sharey=True)
     name = os.path.basename(os.path.normpath(test_path))

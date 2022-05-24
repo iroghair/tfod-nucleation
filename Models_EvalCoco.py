@@ -14,8 +14,8 @@ from io import StringIO
 
 """Load json file of ground truth and detection"""
 # indicate custom model & desired checkpoint from training
-CUSTOM_MODEL = 'my_centernet_hg104_1024_7'
-TESTED_IMG_FOLDER = 'test_maskJGIR_thresh0.5'
+CUSTOM_MODEL = 'my_centernet_hg104_1024_8'
+TESTED_IMG_FOLDER = 'test_thresh0.5'
 
 # get paths and files of custom model
 paths, files = get_paths_and_files(CUSTOM_MODEL)
@@ -32,7 +32,6 @@ cocoDt = cocoGt.loadRes(path_to_results)
 cocoEval = COCOeval(cocoGt, cocoDt, annType)
 
 # set parameters as desired
-# TODO understand metrics and set possible Detections to more than 100
 #cocoEval.params.maxDets = [1,10,80]
     #  imgIds     - [all] N img ids to use for evaluation
     #  catIds     - [all] K cat ids to use for evaluation
@@ -92,7 +91,10 @@ plt.plot(x,pr_95, label="IoU@0.95")
 
 plt.ylabel("Precision")
 plt.xlabel("Recall")
-plt.legend()
-plt.title((CUSTOM_MODEL+", img: 20 artificial, mask JGIR"))
+#plt.legend()
+#plt.legend(fontsize="small", loc="center left")
+plt.legend(loc='lower center', bbox_to_anchor=(0.48, -0.3), ncol=5, fontsize = 'small')
+plt.subplots_adjust(bottom=0.2)
+plt.title((CUSTOM_MODEL+", 20 artificial images (mask JGIR)"))
 plt.savefig(os.path.join(model_tested_path,"Precision_Recall_Curve.png"))
 x=1

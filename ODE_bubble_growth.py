@@ -12,32 +12,43 @@ D = 1.97 * 10**(-9) # diffusion coeff CO2 in water [m^2/s]
 
 # k_H = 3.79 * 10**(-7) # Alessandro: Henry constant [mol/kg/Pa]
 k_H = 0.035 # [mol/kg/bar] NIST
-p_0 = 6.4 # initial pressure [bar]
-p_S = 5.5 # pressure after drop [bar]
+#p_0 = 6.4 # initial pressure [bar]
+#p_S = 5.5 # pressure after drop [bar]
 
 # concentrations: Henry's law
-c_0 = k_H * p_0 # [mol/kg]
-c_S = k_H * p_S # [mol/kg]
+#c_0 = k_H * p_0 # [mol/kg]
+#c_S = k_H * p_S # [mol/kg]
 
 # factor beta
-beta = (c_0-c_S) * rho_l/rho_g * MW
+#beta = (c_0-c_S) * rho_l/rho_g * MW
 
 # Critical radius
 sigma = 0.069 # surface tension [N/m] Batistella p.98
-zeta = p_0/p_S - 1 # supersaturation ratio [-]
-R_c = (2 * sigma) / (p_S * 10**5 * zeta) # critical radius [m]
+#zeta = p_0/p_S - 1 # supersaturation ratio [-]
+#R_c = (2 * sigma) / (p_S * 10**5 * zeta) # critical radius [m]
 
-def model(R,t):
-    """right hand side of the ODE
-    dydt = model(y,t)"""
-    #R = z
-    dRdt = D * beta * (1/math.sqrt(pi*D*t) + 1/R)
-    return dRdt
 
-def get_Rb():
+
+def get_Rb(p_0=6.4,p_S=5.5,t_max=1801):
     # time vector
-    t = np.arange(1,1801,10) # [s]
+    t = np.arange(1,t_max,10) # [s]
     # initial condition (Bubble size)
+    ##########
+    # concentrations: Henry's law
+    c_0 = k_H * p_0 # [mol/kg]
+    c_S = k_H * p_S # [mol/kg]
+    beta = (c_0-c_S) * rho_l/rho_g * MW
+    zeta = p_0/p_S - 1
+    # Critical radius
+    R_c = (2 * sigma) / (p_S * 10**5 * zeta) # critical radius [m]
+    # RHS ODE
+    def model(R,t):
+        """right hand side of the ODE
+        dydt = model(y,t)"""
+        #R = z
+        dRdt = D * beta * (1/math.sqrt(pi*D*t) + 1/R)
+        return dRdt
+    ########
     #R_0_mm = 0.006 # [mm] average pit radius Batistella p.98
     #R_0 = R_0_mm / 10**3 # [m]
     # solve ODE

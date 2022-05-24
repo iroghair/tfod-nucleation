@@ -10,27 +10,33 @@ from openpyxl import load_workbook
 from tensorflow.python.framework import tensor_util
 from IPython.display import display
 
-from MetricPlots import precision_plot, recall_plot, plot_total_loss, plot_learningrate
+from MetricPlots import precision_plot, precision_barplot, recall_plot, plot_total_loss, plot_learningrate
 from tidecv import TIDE, datasets
 
-"""Get properties that are available in Tensorboard for custom Object Detection models"""
-
 # set model name
-custom_models = [#'my_faster_rcnn_resnet101_v1_640',
+custom_models = ['my_faster_rcnn_resnet101_v1_640',
                 'my_faster_rcnn_resnet101_v1_1024_2',
                 'my_faster_rcnn_resnet152_v1_1024',
-                #'my_ssd_resnet50_v1_fpn_1024',
+                'my_ssd_resnet50_v1_fpn_1024',
                 #'my_ssd_resnet101_v1_fpn_1024',
                 'my_centernet_hg104_512',
                 'my_centernet_hg104_1024',
+                #'my_centernet_hg104_1024_5',
+                #'my_centernet_hg104_1024_5_v3',
+                #'my_centernet_hg104_1024_6',
+                #'my_centernet_hg104_1024_7']
                 #'my_centernet_hg104_1024_2',
                 #'my_centernet_hg104_1024_3',
+                #'my_centernet_hg104_1024_4']
                 'my_centernet_resnet101_v1_fpn_512',
                 'my_efficientdet_d1']
                 #'my_efficientdet_d4']
                 #'my_faster_rcnn_resnet101_v1_1024']
                 #'my_faster_rcnn_resnet101_v1_640']
                 #'my_faster_rcnn_resnet101_v1_1024_3']
+
+# evaluation image set
+eval_folder = 'eval'#'eval_test_maskJGIR'##
 
 # models path
 models_path = os.path.join('Tensorflow','workspace','models')
@@ -41,7 +47,7 @@ def set_paths(model_name):
     """Get path to train and eval folders of specific model"""
     custom_model_path = os.path.join('Tensorflow','workspace','models',model_name)
     train_path = os.path.join(custom_model_path,'train')
-    eval_path = os.path.join(custom_model_path,'eval')
+    eval_path = os.path.join(custom_model_path,eval_folder)
     return train_path, eval_path
 
 def get_event_file(epath):
@@ -102,16 +108,19 @@ def save_dict_to_excel(dict,path):
     writer.save()
     writer.close()
 
-save_dict_to_excel(train_dict,"Train_Metrics_Dict.xlsx")
-save_dict_to_excel(eval_dict,"Eval_Metrics_Dict.xlsx")
+#save_dict_to_excel(train_dict,"Train_Metrics_Dict.xlsx")
+#save_dict_to_excel(eval_dict,"Eval_Metrics_Dict.xlsx")
 
 # compare precisions of custom models
-precision_fig = precision_plot(eval_dict)
-plt.savefig(os.path.join(models_path,"Precisions_Compare_allfromTUe.png"))
+#precision_fig = precision_plot(eval_dict)
+#plt.savefig(os.path.join(models_path,"Precisions_cnmask_DA.png"),bbox_inches="tight")
+#plt.close()
+precision_barfig = precision_barplot(eval_dict)
+plt.savefig(os.path.join(models_path,"Precisions_bar_all_DA_2.png"),bbox_inches="tight") #cnmask
 plt.close()
 # compare recalls of custom models
 recall_ig = recall_plot(eval_dict)
-plt.savefig(os.path.join(models_path,"Recalls_Compare_allfromTUe.png"))
+plt.savefig(os.path.join(models_path,"Recalls_centernet_7_testmaskJG.png"))
 plt.close()
 print("Precision and Recall plot saved under 'Workspace/Models'")
 

@@ -44,6 +44,50 @@ def precision_plot(dict):
     #plt.show()
     return prec_fig
 
+def precision_barplot(dict):
+    """CREATE PLOT SHOWING DIFFERENT PRECISION TYPES
+    one subaxis per precision type, grouped by unique custom models"""
+    keys = dict.keys()
+    prec_fig, ((ax1,ax2,ax3), (ax4,ax5,ax6)) = plt.subplots(2, 3, sharex=True,sharey=True)
+    #prec_fig.suptitle('Precision Values')
+    x=0
+    for model in keys:
+        df = dict[model]
+        # get different precision values from df
+        # get mAP value (first row of df that contains "mAP")
+        mAP = df[df['Value'].str.contains("Precision/mAP")].iloc[0].t
+        mAP50IOU = df[df['Value'].str.contains("mAP@.50IOU")].t
+        mAP75IOU = df[df['Value'].str.contains("mAP@.75IOU")].t
+        small = df[df['Value'].str.contains("mAP") & df['Value'].str.contains("(small)")].t
+        medium = df[df['Value'].str.contains("mAP") & df['Value'].str.contains("(medium)")].t
+        large = df[df['Value'].str.contains("mAP") & df['Value'].str.contains("(large)")].t
+        # subplot
+        ax1.bar(x,mAP,width=1,label=model,align='center',alpha=.7)
+        ax1.title.set_text('mAP')
+        #ax1.set_ylim([0.4,1])
+        ax1.set_xticks([])
+        ax2.bar(x,mAP50IOU,width=1,label=model,align='center',alpha=.7)
+        ax2.title.set_text('mAP @ 0.50 IoU')
+        ax2.set_xticks([])
+        ax3.bar(x,mAP75IOU,width=1,label=model,align='center',alpha=.7)
+        ax3.title.set_text('mAP @ 0.75 IoU')
+        ax3.set_xticks([])
+        ax4.bar(x,small,width=1,label=model,align='center',alpha=.7)
+        ax4.title.set_text('mAP (small)')
+        ax4.set_xticks([])
+        ax5.bar(x,medium,width=1,label=model,align='center',alpha=.7)
+        ax5.title.set_text('mAP (medium)')
+        ax5.set_xticks([])
+        ax6.bar(x,large,width=1,label=model,align='center',alpha=.7)
+        ax6.title.set_text('mAP (large)')
+        ax6.set_xticks([])
+        x += 1
+    #plt.legend(loc=(1.04, 0))
+    plt.legend(loc='lower center', bbox_to_anchor=(-0.7, -0.6), ncol=2, fontsize = 'small')
+    prec_fig.subplots_adjust(bottom=0.2)
+    #plt.show()
+    return prec_fig
+
 def recall_plot(dict):
     """CREATE PLOT SHOWING DIFFERENT RECALL TYPES
     one subaxis per recall type, grouped by unique custom models"""
