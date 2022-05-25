@@ -14,5 +14,3 @@ detection_model = model_builder.build(model_config=configs['model'], is_training
 # Restore checkpoint
 ckpt = tf.compat.v2.train.Checkpoint(model=detection_model)
 ckpt.restore(os.path.join(paths['CHECKPOINT_PATH'], 'ckpt-21')).expect_partial()
-
-x=1

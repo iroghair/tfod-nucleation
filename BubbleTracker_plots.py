@@ -1,5 +1,5 @@
 from TFODPaths import get_paths_and_files
-from SeparateTest_Functions import get_time_diff_name
+from DetectAnalysis_Functions import get_time_diff_name
 import os
 import numpy as np
 import pandas as pd

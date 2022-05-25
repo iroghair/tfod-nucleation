@@ -1,5 +1,5 @@
 from TFODPaths import get_paths_and_files
-from SeparateTest_Functions import get_image
+from DetectAnalysis_Functions import get_image
 import os
 import json
 import cv2 
@@ -13,9 +13,9 @@ from object_detection.utils import visualization_utils as viz_utils
 """Load json file of ground truth and detection"""
 # indicate custom model & desired checkpoint from training
 CUSTOM_MODEL = 'my_centernet_hg104_1024_8'
-TESTED_IMG_FOLDER = 'Exp2_Tracking_thresh0.5'#'22_03_29_Exp2_thresh0.5' #'supersaturation_0.16_thresh0.5' ##
-IMG_FOLDER = 'Exp2_Tracking'#'22_03_29_Exp2'#'supersaturation_0.16' #
-img_format = '.jpg'#'.tif' #
+TESTED_IMG_FOLDER = '22_03_29_Exp2_thresh0.5' #'supersaturation_0.16_thresh0.5' ##
+IMG_FOLDER = '22_03_29_Exp2'#'supersaturation_0.16' #
+img_format = '.jpg' #'.tif'
 tracker_threshold = 1000 #100
 img_width_mm = 17 #20 [mm]
 

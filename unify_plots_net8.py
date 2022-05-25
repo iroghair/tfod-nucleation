@@ -1,5 +1,5 @@
 from TFODPaths import get_paths_and_files
-from SeparateTest_Functions import get_time_diff_name
+from DetectAnalysis_Functions import get_time_diff_name
 import os
 import numpy as np
 import pandas as pd
@@ -116,10 +116,6 @@ def plot_avrg_Bdiam_sqrt(df, save_path):
     d_B_ODE_m2 = R_b2 * 2 * 10**(3) # bubble diameter [mm]
     d_B_ODE_m3 = R_b3 * 2 * 10**(3) # bubble diameter [mm]
     d_B_ODE_m4 = R_b4 * 2 * 10**(3) # bubble diameter [mm]
-    #R_b, t = get_Rb() # bubble radius [m], time [s]
-    #t_ODE = t / 60 # time vector [min]
-    #d_B_ODE_m = R_b * 2 # bubble diameter [m]
-    #d_B_ODE = d_B_ODE_m * 10**(3) # bubble diameter [mm]
     plt.plot(np.sqrt(t_ODE3),d_B_ODE_m3, color="lightskyblue",label=(r'$\zeta$'+"=0.05 (Model)"))
     plt.plot(np.sqrt(t_ODE1),d_B_ODE_m1, color="moccasin",label=(r'$\zeta$'+"=0.09 (Model)")) #, label="Epstein, Plesset model")
     plt.plot(np.sqrt(exp3["time [min]"]), exp3.diam, 'o',color="tab:blue",markersize=2,label=(r'$\zeta$'+"=0.05"))
@@ -130,7 +126,6 @@ def plot_avrg_Bdiam_sqrt(df, save_path):
     plt.plot(np.sqrt(exp2["time [min]"]), exp2.diam, 'o',color="tab:purple",markersize=2,label=(r'$\zeta$'+"=0.21"))
     plt.xlabel('\u221At')
     plt.ylabel('$D_b$(t) [mm]')#Average bubble diameter
-    #plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.3), ncol=4)#, fontsize = 'xx-small') #loc='upper left'
     plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.35), ncol=4)#, fontsize = 'xx-small') #loc='upper left'
     ax = plt.gca()
     ax.set_ylim([0, 1.5])
@@ -265,8 +260,6 @@ for p in accum_unmatch_df.prop.unique():
     unmatch_num = accum_unmatch_df.num[accum_unmatch_df.prop==p]
     accum_unmatch_df.loc[accum_unmatch_df.prop==p,"Accum Num"] = np.cumsum(unmatch_num)
 plot_accum_num(accum_unmatch_df, data_path)
-
-x=1
 
 
 

@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 from tensorflow.python.framework import tensor_util
 from IPython.display import display
 
-from MetricPlots import precision_plot, precision_barplot, recall_plot, plot_total_loss, plot_learningrate
+from Metric_Plots import precision_plot, precision_barplot, recall_plot, plot_total_loss, plot_learningrate
 from tidecv import TIDE, datasets
 
 # set model name
@@ -112,9 +112,9 @@ def save_dict_to_excel(dict,path):
 #save_dict_to_excel(eval_dict,"Eval_Metrics_Dict.xlsx")
 
 # compare precisions of custom models
-#precision_fig = precision_plot(eval_dict)
-#plt.savefig(os.path.join(models_path,"Precisions_cnmask_DA.png"),bbox_inches="tight")
-#plt.close()
+precision_fig = precision_plot(eval_dict)
+plt.savefig(os.path.join(models_path,"Precisions_cnmask_DA.png"),bbox_inches="tight")
+plt.close()
 precision_barfig = precision_barplot(eval_dict)
 plt.savefig(os.path.join(models_path,"Precisions_bar_all_DA_2.png"),bbox_inches="tight") #cnmask
 plt.close()
@@ -140,12 +140,3 @@ for model in custom_models:
 #launch_tensorboard(eval_path)
 # for view in debug console:
 #display(event_df)
-
-# edict_keys = list(eval_metrics_dict.keys())
-
-# TODO how to implement TIDE
-if 0:
-    tide = TIDE()
-    tide.evaluate(datasets.COCO(), datasets.COCOResult(eval_efile_path), mode=TIDE.BOX)
-    tide.summarize()  # Summarize the results as tables in the console
-    tide.plot()       # Show a summary figure

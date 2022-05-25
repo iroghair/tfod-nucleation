@@ -179,7 +179,7 @@ def unite_detection_dicts(pdict,adict,score_thresh):
     return dict
 
 def get_time_diff_name(img_paths, mode="sec"):
-    """Convert image names from "DSC_hhmmss" to time difference in seconds(?)"""
+    """Convert image names from "DSC_hhmmss" to time difference in seconds or minutes (mode)"""
     # remove "DSC__" from name
     splits = [n.split('__')[1] for n in img_paths]
     # remove file extension
@@ -219,7 +219,7 @@ def plot_Bcount(dict, test_path, save_path):
         times = [round(float(key.split(' ')[0])) for key in times_str]
         if dk[0].split(' ')[1] == 's': # convert sec to min
             times = [t / 60 for t in times]
-    plt.plot(times, Bcount, 'o',markersize=6, color='limegreen')#,markersize=10)
+    plt.plot(times, Bcount, 'o',markersize=6, color='limegreen')
     plt.xlabel('Time [min]')
     plt.ylabel('Bubble count [-]')
     name = os.path.basename(os.path.normpath(test_path))
@@ -411,7 +411,6 @@ def Bdiams_over_t(dict,save_path):
         # replace old key with new key
         dict[times_str] = dict.pop(k)
     # sort keys by timestamp
-    #new_keys.sort()
     lists = sorted(dict.items()) # sorted by key, return a list of tuples
     x, y = zip(*lists) # unpack a list of pairs into two tuples
     for xe, ye in lists:
