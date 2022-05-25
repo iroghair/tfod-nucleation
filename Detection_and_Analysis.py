@@ -2,8 +2,8 @@
 from numpy.lib.function_base import append
 from TFODPaths import get_paths_and_files
 from Create_CocoJson import add_annot_to_dict, create_coco_annot, create_coco_results, save_json_file
-from SeparateTest_Functions import get_image, exclude_partial_pred, get_absolute_pixels, get_time_diff_name, get_visualization_colors, get_pred_thresh, plot_avrg_Bdiam, plot_avrg_Bdiam_sqrt, unite_detection_dicts, Bdiams_over_t
-from SeparateTest_Functions import unite_detection_dicts, plot_Bcount, hist_Bdiameter, hist_compare_Bdiameter, boxplot_compare_Bdiameter, hist_all_pred_diams
+from DetectAnalysis_Functions import get_image, exclude_partial_pred, get_absolute_pixels, get_time_diff_name, get_visualization_colors, get_pred_thresh, plot_avrg_Bdiam, plot_avrg_Bdiam_sqrt, unite_detection_dicts, Bdiams_over_t
+from DetectAnalysis_Functions import unite_detection_dicts, plot_Bcount, hist_Bdiameter, hist_compare_Bdiameter, boxplot_compare_Bdiameter, hist_all_pred_diams
 
 import os
 import tensorflow as tf
