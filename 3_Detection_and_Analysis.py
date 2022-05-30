@@ -20,7 +20,7 @@ import seaborn as sns
 import xmltodict
 import pprint
 
-"""Annotations and Checkpoints of Model required as input"""
+"""Make detections on images and analyze bounding box characteristics (e.g. bubble number, average bubble size etc.)"""
 
 # indicate custom model & desired checkpoint from training
 CUSTOM_MODEL = 'my_centernet_hg104_1024_8'
