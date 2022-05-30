@@ -403,7 +403,7 @@ if folder_name != 'test':
     bins = np.linspace(min(bmins),max(bmaxs),25)
     #bubble_diameters_copy = dict(bubble_diameters)
     #bubble_diameters_copy.pop("0")
-    #hist_all_pred_diams(bubble_diameters,bins,test_path,model_tested_path)
+    hist_all_pred_diams(bubble_diameters,bins,test_path,model_tested_path)
 
 # save into textfiles
 l=[]

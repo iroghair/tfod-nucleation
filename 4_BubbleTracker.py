@@ -10,6 +10,10 @@ import seaborn as sns
 import motrackers.centroid_kf_tracker
 from object_detection.utils import visualization_utils as viz_utils
 
+"""Kalman Filter based Centroid Tracker
+Matches bounding boxes (from detections of a network on [experimental] images) from current image to subsequent image in a time series
+[Assigns detected bounding boxes (img n+1) to tracked bounding boxes (img n) using IoU as a distance metric]"""
+
 """Load json file of ground truth and detection"""
 # indicate custom model & desired checkpoint from training
 CUSTOM_MODEL = 'my_centernet_hg104_1024_8'

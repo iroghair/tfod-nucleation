@@ -10,6 +10,8 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 from ODE_bubble_growth import get_Rb
 
+"""Functions for the detection of bubbles with custom CNN and subsequent analysis"""
+
 size=15
 params = {'legend.fontsize': 'large',
           #'figure.figsize': (20,8),

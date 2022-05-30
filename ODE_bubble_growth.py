@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import odeint
 
+"""Solves the model of Epstein and Plesset for the growth of a single bubble in a bulk liquid via diffusion"""
+
 # substances
 rho_l = 1000 # liquid density [kg/m^3]
 rho_g = 10.191 # gas density [kg/m^3]

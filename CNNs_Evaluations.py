@@ -11,7 +11,6 @@ from tensorflow.python.framework import tensor_util
 from IPython.display import display
 
 from Metric_Plots import precision_plot, precision_barplot, recall_plot, plot_total_loss, plot_learningrate
-from tidecv import TIDE, datasets
 
 """Compare performance (evaluation/test metrics) of several models"""
 

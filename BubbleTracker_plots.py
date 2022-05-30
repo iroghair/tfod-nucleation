@@ -8,6 +8,8 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from ODE_bubble_growth import get_Rb
 
+"""Kalman Filter based Centroid Tracker - plot functions"""
+
 size=15
 params = {'legend.fontsize': 'large',
           #'figure.figsize': (20,8),
