@@ -12,6 +12,9 @@ from pycocotools.coco import COCO
 import sys
 from io import StringIO
 
+"""Plots the Precision Recall Curve for a tested image set
+Needs coco json files containing the annotation and detection bounding boxes"""
+
 """Load json file of ground truth and detection"""
 # indicate custom model & desired checkpoint from training
 CUSTOM_MODEL = 'my_centernet_hg104_1024_8'

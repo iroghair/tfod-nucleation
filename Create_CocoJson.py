@@ -3,7 +3,8 @@ import numpy as np
 import json
 import os
 
-"""Creates annotation json file in COCO format (used for calculation of evaluation metrics)"""
+"""Creates json file in COCO format containing the bounding box characteristics (e.g. coordinates) of annotations or detections
+(used for calculation of evaluation metrics)"""
 
 def initialize_COCO_annot():
     """Creates general info for COCO json file"""

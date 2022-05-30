@@ -13,6 +13,8 @@ from IPython.display import display
 from Metric_Plots import precision_plot, precision_barplot, recall_plot, plot_total_loss, plot_learningrate
 from tidecv import TIDE, datasets
 
+"""Compare performance (evaluation/test metrics) of several models"""
+
 # set model name
 custom_models = ['my_faster_rcnn_resnet101_v1_640',
                 'my_faster_rcnn_resnet101_v1_1024_2',

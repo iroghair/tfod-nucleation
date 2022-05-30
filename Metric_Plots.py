@@ -2,6 +2,8 @@ import os
 import matplotlib.pyplot as plt
 from numpy.core.fromnumeric import size
 
+"""Contains functions for plotting training and evaluation metrics"""
+
 def metric_split(dict):
     keys = dict.keys()
     for model in keys:
