@@ -1,0 +1,26 @@
+{
+    "info": {
+        "year": "2022",
+        "version": [],
+        "description": "Bubble nucleation",
+        "contributor": [],
+        "url": [],
+        "date_created": []
+    },
+    "licenses": [
+        {
+            "url": [],
+            "id": [],
+            "name": []
+        }
+    ],
+    "images": [],
+    "categories": [
+        {
+            "id": 1,
+            "name": "Bubble",
+            "supercategory": []
+        }
+    ],
+    "annotations": []
+}
