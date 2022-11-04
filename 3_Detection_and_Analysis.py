@@ -181,16 +181,13 @@ def visualize_detections(img,detect_dict,score_thresh,save_name,color_id,
 #################################
 
 # set path of test images
-#test_path=os.path.join(paths['IMAGE_PATH'], 'test')
-test_path=os.path.join(paths['IMAGE_PATH'], '221103')
-# test_path=os.path.join(paths['IMAGE_PATH'], 'Exp2_Tracking')
-#test_path=os.path.join(paths['IMAGE_PATH'], 'Distr_Exp4')
+test_path=os.path.join(paths['IMAGE_PATH'], 'Exp2_Tracking')
 
 MIN_SCORE_THRESH = 0.5
 
 # indicate width and height of imgs [mm]
-img_width_mm = 20 #20 #17
-img_height_mm = 20 #20 #17
+img_width_mm = 17
+img_height_mm =17
 
 # rescaling image
 # ONLY FOR IMAGES WITHOUT ANNOTATIONS (with annot: 1)
