@@ -12,20 +12,21 @@ from object_detection.utils import label_map_util
 from object_detection.builders import model_builder
 from object_detection.utils import config_util
 
-import cv2 
+import cv2
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import xmltodict
 import pprint
+import csv
 
 """Make detections on images and analyze bounding box characteristics (e.g. bubble number, average bubble size etc.)"""
 
 # indicate custom model & desired checkpoint from training
 CUSTOM_MODEL = 'my_centernet_hg104_1024_8'
 CUSTOM_CHECKPOINT = 'ckpt-21'
-# max. allowed detections
+# max. allowed detectionss
 max_detect = 1000
 
 # get paths and files of custom model
@@ -181,15 +182,15 @@ def visualize_detections(img,detect_dict,score_thresh,save_name,color_id,
 
 # set path of test images
 #test_path=os.path.join(paths['IMAGE_PATH'], 'test')
-#test_path=os.path.join(paths['IMAGE_PATH'], '22_03_30_Exp2')
-test_path=os.path.join(paths['IMAGE_PATH'], 'Exp2_Tracking')
+test_path=os.path.join(paths['IMAGE_PATH'], '221103')
+# test_path=os.path.join(paths['IMAGE_PATH'], 'Exp2_Tracking')
 #test_path=os.path.join(paths['IMAGE_PATH'], 'Distr_Exp4')
 
 MIN_SCORE_THRESH = 0.5
 
 # indicate width and height of imgs [mm]
-img_width_mm = 17 #20 #17
-img_height_mm = 17 #20 #17
+img_width_mm = 20 #20 #17
+img_height_mm = 20 #20 #17
 
 # rescaling image
 # ONLY FOR IMAGES WITHOUT ANNOTATIONS (with annot: 1)
@@ -341,6 +342,11 @@ for ipath in TESTIMGS_PATHS:
 # save COCO results to json file
 if CREATE_COCO_result:
     save_json_file(resultslist,model_tested_path,"COCO_results")
+
+######### SAVE DIAMETERS ###########
+np.save("Db_diaphragm.npy", bubble_diameters)
+np.save("Db_mean_diaphragm.npy", avrg_diam)
+np.save("Nb_diaphragm.npy", bubble_number)
 
 ########### PLOTS ############
 ap_detect = {}
