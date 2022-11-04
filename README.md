@@ -16,6 +16,8 @@ With the provided code one can train a Convolutional Neural Network (CNN) from t
 * `5_Retrain_custom_CNN.ipynb` Train custom model again with new images.
 
 ## Usage
+Set up TensorFlow according to the manual in `doc/set_up_tensorflow.md`. Then make sure you create a virtual environment with `requirements.txt`. This should set you up with the basic structure. It is also required to download a pretrained model.
+
 Some sample training images, artificially generated, are found in `Tensorflow/workspace/images/train`, and images ready for object detection, created by experiment, are found in `Tensorflow/workspace/images/22_03_30_Exp2`. Refer to the documentation files in the `doc` folder for details on how to set up the system for your own images, either training or object detection.
 
 ## Acknowledgement
