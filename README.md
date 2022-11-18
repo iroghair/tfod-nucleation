@@ -21,7 +21,7 @@ Set up TensorFlow according to the manual in `doc/set_up_tensorflow.md`. Then ma
 Some sample training images, artificially generated, are found in `Tensorflow/workspace/images/train`, and images ready for object detection, created by experiment, are found in `Tensorflow/workspace/images/22_03_30_Exp2`. Refer to the documentation files in the `doc` folder for details on how to set up the system for your own images, either training or object detection.
 
 ## Acknowledgement
-The original code for TensorFlow Object Detection is based on the [Tensorflow Object Detection course by Nicolas Renotte](https://github.com/nicknochnack/TFODCourse). The further development for bubble nucleation experiments is done in a graduation project by Josefine Gatter MSc.
+The original code for TensorFlow Object Detection is based on the [Tensorflow Object Detection course by Nicolas Renotte](https://github.com/nicknochnack/TFODCourse). The further development for bubble nucleation experiments is done in a graduation project by [Josefine Gatter](https://github.com/gatterj) MSc.
 
 ## More info
 Read HowTo_BubTFOD
